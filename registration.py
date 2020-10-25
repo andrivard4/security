@@ -40,7 +40,11 @@ def validateInput() :
         error = 0; errormess = "";
         print("Validating Input\n")
     
-        if len(email.split("@")) != 2 :
+        email_contents = email.split("@")
+        if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == "." :
+            errormess += "Email is invalid\n"
+            error = 1
+        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == ""  :
             errormess += "Email is invalid\n"
             error = 1
         if password != confirm :
