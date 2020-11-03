@@ -31,10 +31,8 @@ def getInput() :
     confirm = getpass.getpass(prompt='Re-enter Password: ')
 
 #Cassie
+#Validate Input from user
 def validateInput() :
-    #once passwords are confirmed set confirm = "" because we no longer want it in memory ~Andrew
-    #validates the input
-    # ex email is an email, password match...
     global username;    global email;
     global password;    global confirm;
     has_digit = 0;    has_symbol = 0;
@@ -52,11 +50,17 @@ def validateInput() :
         elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == ""  :
             errormess += "Email is invalid\n"
             error = 1
+
+        #Make sure passwords match
         if password != confirm :
             errormess += "Passwords do not match\n"
             error = 1
+        #get rid of data in confirm variable, no longer used
         confirm = ""
 
+        #check length of password
+        #if length is good, check to see if lower, upper, number, symbol
+        # present in the password
         if len(password) < 8 or len(password) > 100 :
             errormess += "Password needs to be 8-100 characters in length\n"
             error = 1
@@ -73,9 +77,12 @@ def validateInput() :
                 if character.isspace() :
                     errormess += "Password cannot contain white space"
                     error = 1;
-        if (has_digit + has_lower + has_upper + has_symbol) < 3 :
-            errormess += "Password needs 3 of the following:\n number, uppercase letter, lowercase letter, symbol\n"
+        if (has_digit + has_lower + has_upper + has_symbol) < 4 :
+            errormess += "Password needs all of the following:\n number, uppercase letter, lowercase letter, symbol\n"
             error = 1
+
+        #if any error occured, call getInput and restart the loop
+        #otherwise continue
         if(errormess == "" and error == 0) :
             print("Credentials verified, creating account\n")
         else :
