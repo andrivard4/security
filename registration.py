@@ -1,8 +1,12 @@
 #remember to install https://pypi.org/project/pycryptodome/
 #to install for python3 use pip3
 from Crypto.Hash import SHA256
-from Crypto.Random import random
+from Crypto.Random import get_random_bytes
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
 import getpass
+import os
 
 username = "usr"
 email = "email"
@@ -10,6 +14,7 @@ encrypted_password = ""
 salt = 0
 password = "Password"
 confirm = "conf"
+publicKey = ""
 
 
 #Pooja
@@ -35,11 +40,11 @@ def validateInput() :
     has_digit = 0;    has_symbol = 0;
     has_upper = 0;    has_lower = 0;
     error = 1;
-    
+
     while error == 1 or errormess != "":
         error = 0; errormess = "";
         print("Validating Input\n")
-    
+
         email_contents = email.split("@")
         if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == "." :
             errormess += "Email is invalid\n"
@@ -72,11 +77,24 @@ def validateInput() :
             errormess += "Password needs 3 of the following:\n number, uppercase letter, lowercase letter, symbol\n"
             error = 1
         if(errormess == "" and error == 0) :
-            print("Credentials verified, creating contact\n")
+            print("Credentials verified, creating account\n")
         else :
             print(errormess)
             getInput()
 
+def keyGen() :
+    global publicKey
+    key = RSA.generate(2048)
+    private_key = key.export_key()
+    file_out = open(os.path.expanduser("~") + "/.securedrop/private.pem", "wb")
+    cipher = AES.new(PBKDF2(password, salt, dkLen=16), AES.MODE_EAX)
+    encrypted_data, tag = cipher.encrypt_and_digest(private_key)
+    file_out.write(cipher.nonce)
+    file_out.write(tag)
+    file_out.write(encrypted_data)
+    file_out.close()
+
+    publicKey = key.publickey().export_key()
 
 # Andrew
 def encryptData() :
@@ -84,8 +102,9 @@ def encryptData() :
     global salt
     global encrypted_password
     global password
-    salt = random.getrandbits(16)
+    salt = get_random_bytes(2)
     password_hash = SHA256.new()
+    keyGen()
     def update() :
         password_hash.update(salt + password)
     #we no longer want the unencrypted password to exist
@@ -94,12 +113,21 @@ def encryptData() :
 
 #Abhi
 def loadFile() :
-    #Creates a file and saves the user data
-    #Ignore the password and conf and save encrypted_password instead ~Andrew
-    print("loadFile")
+    user = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
+    contacts = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "w")
+    contacts.write(email + ":" + username + ":" + str(publicKey))
+    contacts.close()
+    user.write(email + ":" + str(salt) + ":" + encrypted_password)
+    user.close()
 
+def account_check() :
+    if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log") :
+        print("User already registered! Remove ~/.securedrop to reset account.\n")
+        exit(0)
+    os.mkdir(os.path.expanduser("~") + "/.securedrop")
+
+account_check()
 getInput()
 validateInput()
 encryptData()
 loadFile()
-print(username + ":" + email + ":" + str(salt) + ":" + encrypted_password)
