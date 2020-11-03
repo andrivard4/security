@@ -77,7 +77,7 @@ def validateInput() :
                 if character.isspace() :
                     errormess += "Password cannot contain white space"
                     error = 1;
-        if (has_digit + has_lower + has_upper + has_symbol) < 4 :
+        if (has_digit + has_lower + has_upper + has_symbol) < 3 :
             errormess += "Password needs all of the following:\n number, uppercase letter, lowercase letter, symbol\n"
             error = 1
 
