@@ -5,6 +5,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
+import json
 import getpass
 import os
 
@@ -121,10 +122,7 @@ def encryptData() :
 #Abhi
 def loadFile() :
     user = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
-    contacts = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "w")
-    contacts.write(email + ":" + username + ":" + str(publicKey))
-    contacts.close()
-    user.write(email + ":" + str(salt) + ":" + encrypted_password)
+    user.write(json.dumps({'email':email, 'credentials' : salt.hex() + ":" + encrypted_password, 'pub' : publicKey.hex()}));
     user.close()
 
 def account_check() :
