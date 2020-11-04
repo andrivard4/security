@@ -1,6 +1,8 @@
 #We can assume for now that the user is logged in
-public_key = ""
-private_key = ""
+from Crypto.PublicKey import RSA
+
+public_key = RSA.import_key(open("receiver.pem").read())
+private_key = RSA.import_key(open("private.pem").read())
 JSON_data = ""
 input_name = ""
 input_email = ""
