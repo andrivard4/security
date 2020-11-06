@@ -18,7 +18,7 @@ confirm = "conf"
 publicKey = ""
 
 
-#Pooja
+# Pooja
 def getInput() :
     #Get user input from command line
     #Save it in the above variables
@@ -31,8 +31,8 @@ def getInput() :
     password = getpass.getpass(prompt='Enter Password: ')
     confirm = getpass.getpass(prompt='Re-enter Password: ')
 
-#Cassie
-#Validate Input from user
+# Cassie
+# Validate Input from user
 def validateInput() :
     global username;    global email;
     global password;    global confirm;
@@ -52,16 +52,16 @@ def validateInput() :
             errormess += "Email is invalid\n"
             error = 1
 
-        #Make sure passwords match
+        # Make sure passwords match
         if password != confirm :
             errormess += "Passwords do not match\n"
             error = 1
-        #get rid of data in confirm variable, no longer used
+        # get rid of data in confirm variable, no longer used
         confirm = ""
 
-        #check length of password
-        #if length is good, check to see if lower, upper, number, symbol
-        # present in the password
+        # check length of password
+        # if length is good, check to see if lower, upper, number, symbol
+        #  present in the password
         if len(password) < 8 or len(password) > 100 :
             errormess += "Password needs to be 8-100 characters in length\n"
             error = 1
@@ -82,14 +82,15 @@ def validateInput() :
             errormess += "Password needs all of the following:\n number, uppercase letter, lowercase letter, symbol\n"
             error = 1
 
-        #if any error occured, call getInput and restart the loop
-        #otherwise continue
+        # if any error occured, call getInput and restart the loop
+        # otherwise continue
         if(errormess == "" and error == 0) :
             print("Credentials verified, creating account\n")
         else :
             print(errormess)
             getInput()
 
+# Andrew
 def keyGen() :
     global publicKey
     key = RSA.generate(2048)
@@ -119,7 +120,7 @@ def encryptData() :
     password = ""
     encrypted_password = password_hash.hexdigest()
 
-#Abhi
+# Andrew
 def loadFile() :
     user = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
     user.write(json.dumps({'email':email, 'credentials' : salt.hex() + ":" + encrypted_password, 'pub' : publicKey.hex()}));
