@@ -1,9 +1,9 @@
 
 # We can assume for now that the user is logged in
 # May have to change Cryptodome to Crypto depending
-from Cryptodome.PublicKey import RSA
-from Cryptodome.Random import get_random_bytes
-from Cryptodome.Cipher import AES, PKCS1_OAEP
+from Crypto.PublicKey import RSA
+from Crypto.Random import get_random_bytes
+from Crypto.Cipher import AES, PKCS1_OAEP
 import sys
 import os
 import json
@@ -14,12 +14,13 @@ JSON_data = ""
 input_name = ""
 input_email = ""
 
+
 # Get contact name and email
 # Cassie, Pooja
 def getInput():
     global input_name;    global input_email;
-    input_name = input('Enter Contact Name')
-    input_email = input('Enter Contact Email')
+    input_name = input('Enter Contact Name:  ')
+    input_email = input('Enter Contact Email:  ')
 
 
 #Validate email is an email address
@@ -27,10 +28,11 @@ def getInput():
 def validateInput():
     global input_email;
     error = 1;
-    
+
+    # Make sure email has *@*.* where *s are replaced with any character    
     while error == 1:
         print("validating input...")
-        email_contents = email.split("@")
+        email_contents = input_email.split("@")
         if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == "." :
             print("Email is invalid\n")
         elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == ""  :
@@ -42,7 +44,6 @@ def validateInput():
             getInput();
 
 
-
 #This one will be interesting...
 #When the user creates the account, we create a public and private key with it
 #The private key is then encrypted and stored in ~/.securedrop/private.pem
@@ -51,17 +52,12 @@ def validateInput():
 #Use that private key to decrypt the contact data (basically undo what was done in the encrypt portion)
 #once that is done we can parse the data as a JSON file (use python's json library)
 #This all only needs to be done if the file exists yet... so check that first (the file should be at ~/.securedrop/contacts.log)
-
 #New account, new private and public key
 #encrypted and stored in ~/.securedrop/private.pem
 #File then encrypted with key based on password and salt
-
 #use private key to decrypt contact data, check if file is there
 #Parse data as JSON
 #add contact and encrypt
-
-
-
 
 
 #########
@@ -77,8 +73,6 @@ def decryptContacts():
         print("No contact file")    
         return
     # If contact file exists decrypt
-    
-        
 
 
 #Add a contact to the JSON data
@@ -86,14 +80,16 @@ def decryptContacts():
 def addContactsToFile():
     global input_name;    global input_email;
     global JSON_data
-    print("updating file...")
-    JSON_data_value = json.loads(JSON_data)
-    for email in JSON_data_value:
-        if input_email == email:
-            print("This email already exists as a contact.\n")
-            return
+
+    print("Adding contact")
+    if JSON_data:
+        JSON_data_value = json.loads(JSON_data)
+
+        for email in JSON_data_value:
+            if input_email == email:
+                print("This email already exists as a contact.\n")
+                return
     JSON_data += '{ "name":"' + input_name + '", "email":"' + input_email + '"}'
-    print("Added: " + '{ "name":"' + input_name + '", "email":"' + input_email + '"}')
 
 
 #Encrypt the contact info with the public key then write it to the contact file
@@ -101,18 +97,26 @@ def addContactsToFile():
 #This works kinda like how task3 worked... Check the link I put in discord regarding that
 # Cassie, Pooja
 def encryptFile():
-    print("encrypting file...")
     global input_name;    global input_email;
     global JSON_data
 
-    file_out = open(os.path.expanduser("~") + "./securedrop/contacts.log", "wb")
-
+    print("Encrypting file")
+    if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
+        os.mkdir(os.path.expanduser("~") + "/.securedrop")
+    file_out = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "wb")
     recipient_key = RSA.import_key(open("reciever.pem").read())
-    session_key = get_ranodm_bytes(16)
+    session_key = get_random_bytes(16)
     cipher_rsa = PKCS1_OAEP.new(recipient_key)
     enc_session_key = cipher_rsa.encrypt(session_key)
     cipher_aes = AES.new(session_key, AES.MODE_EAX)
-    ciphertext, tag = cipher_aes.encrypt_and_digest(JSON_data)
+    ciphertext, tag = cipher_aes.encrypt_and_digest(JSON_data.encode("utf-8"))
     [ file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext) ]  
     file_out.close()
+
+getInput()
+validateInput()
+decryptContacts()
+addContactsToFile()
+encryptFile()
+
 
