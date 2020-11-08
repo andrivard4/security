@@ -12,7 +12,6 @@ registered_email = ""
 salt = ""
 public_key = ""
 
-
 def getAccountInfo():
     global registered_email
     global salt
@@ -42,9 +41,30 @@ def autho_user():
         key_file.close();
         cipher = AES.new(PBKDF2(password, bytes.fromhex(salt), dkLen=16), AES.MODE_EAX, nonce)
         private_key = RSA.import_key(cipher.decrypt_and_verify(encrypted_key,tag))
+        print("Welcome To SecureDrop!")
+        print("Type 'help' for commands.")
     else:
         print("Login Failed!")
         exit()
+
+def help():
+    print("Type 'add' to add a new contact")
+    print("Type 'list' to list all online ontacts")
+    print("Type 'send' to transfer file to contact")
+    print("Type 'exit' to exit SecureDrop")
+
+def add():
+    print("Not currently available")
+
+def list():
+    print("Not currently available")
+
+def send():
+    print("Not currently available")
+
+def exit():
+    exit()
+
 
 getAccountInfo()
 autho_user()
