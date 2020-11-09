@@ -73,6 +73,19 @@ def decryptContacts():
         print("No contact file")    
         return
     # If contact file exists decrypt
+    if contactfile:
+        file_out = open(os.path.expanduser("~") + "/.securedrop/private.pem", "rb")
+        input_file = 'encrypted.bin' # Input file
+        key = b'YOUR KEY' # The key used for encryption (do not store/read this from the file)
+
+        # Read the data from the file
+        file_in = open(os.path.expanduser("~") + "/.securedrop/private.pem", 'rb') # Open the file to read bytes
+        iv = file_in.read(16) # Read the iv out - this is 16 bytes long
+        ciphered_data = file_in.read() # Read the rest of the data
+        file_in.close()
+
+        cipher = AES.new(key, AES.MODE_CBC, iv=iv)  # Setup cipher
+        original_data = unpad(cipher.decrypt(ciphered_data), AES.block_size)
 
 
 #Add a contact to the JSON data
