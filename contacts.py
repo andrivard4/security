@@ -29,7 +29,7 @@ def validateInput():
     global input_email;
     error = 1;
 
-    # Make sure email has *@*.* where *s are replaced with any character    
+    # Make sure email has *@*.* where *s are replaced with any character
     while error == 1:
         print("validating input...")
         email_contents = input_email.split("@")
@@ -63,29 +63,28 @@ def validateInput():
 #########
 # TBC
 ########
-# Abhi
+# Cassie, Pooja
 def decryptContacts():
     global JSON_data
+
     print("decrypting")
     # Get contact file and see if it exists
-    contactfile = open(os.path.expanduser("~") + "./securedrop/contacts.log", "r")
-    if !contactfile:
-        print("No contact file")    
+    try:
+        contactfile = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "rb")
+    except (OSError, IOError):
+        print("No contact file")
         return
-    # If contact file exists decrypt
-    if contactfile:
-        file_out = open(os.path.expanduser("~") + "/.securedrop/private.pem", "rb")
-        input_file = 'encrypted.bin' # Input file
-        key = b'YOUR KEY' # The key used for encryption (do not store/read this from the file)
+    if os.path.getsize( os.path.expanduser("~") + "/.securedrop/contacts.log" ) == 0:
+        print("No content in file")
+        return
 
-        # Read the data from the file
-        file_in = open(os.path.expanduser("~") + "/.securedrop/private.pem", 'rb') # Open the file to read bytes
-        iv = file_in.read(16) # Read the iv out - this is 16 bytes long
-        ciphered_data = file_in.read() # Read the rest of the data
-        file_in.close()
-
-        cipher = AES.new(key, AES.MODE_CBC, iv=iv)  # Setup cipher
-        original_data = unpad(cipher.decrypt(ciphered_data), AES.block_size)
+    # If contact file exists and there is contnet, decrypt
+    enc_session_key, nonce, tag, ciphertext = \
+        [ contactfile.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1) ]
+    cipher_rsa = PKCS1_OAEP.new(private_key)
+    session_key = cipher_rsa.decrypt(enc_session_key)
+    cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
+    JSON_data = cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8')
 
 
 #Add a contact to the JSON data
@@ -95,14 +94,20 @@ def addContactsToFile():
     global JSON_data
 
     print("Adding contact")
+    print("1", JSON_data)
     if JSON_data:
-        JSON_data_value = json.loads(JSON_data)
-
-        for email in JSON_data_value:
+        JSON_data = json.loads(JSON_data)
+        print("3", JSON_data)
+        for email in JSON_data:
             if input_email == email:
                 print("This email already exists as a contact.\n")
                 return
-    JSON_data += '{ "name":"' + input_name + '", "email":"' + input_email + '"}'
+    else :
+        JSON_data = json.loads('{"contacts":[]}')
+    print("4", JSON_data)
+    list = JSON_data['contacts']
+    list.append({'name':input_name, 'email':input_email})
+    JSON_data.update({'contacts': list})
 
 
 #Encrypt the contact info with the public key then write it to the contact file
@@ -117,13 +122,12 @@ def encryptFile():
     if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
         os.mkdir(os.path.expanduser("~") + "/.securedrop")
     file_out = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "wb")
-    recipient_key = RSA.import_key(open("reciever.pem").read())
     session_key = get_random_bytes(16)
-    cipher_rsa = PKCS1_OAEP.new(recipient_key)
+    cipher_rsa = PKCS1_OAEP.new(public_key)
     enc_session_key = cipher_rsa.encrypt(session_key)
     cipher_aes = AES.new(session_key, AES.MODE_EAX)
-    ciphertext, tag = cipher_aes.encrypt_and_digest(JSON_data.encode("utf-8"))
-    [ file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext) ]  
+    ciphertext, tag = cipher_aes.encrypt_and_digest(json.dumps(JSON_data, indent=2).encode('utf-8'))
+    [ file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext) ]
     file_out.close()
 
 getInput()
@@ -131,5 +135,3 @@ validateInput()
 decryptContacts()
 addContactsToFile()
 encryptFile()
-
-
