@@ -128,10 +128,9 @@ def loadFile() :
 
 def account_check() :
     if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log") :
-        return 0
-        exit(0)
+        return 1
     os.mkdir(os.path.expanduser("~") + "/.securedrop")
-    return 1
+    return 0
 
 account_check()
 getInput()
