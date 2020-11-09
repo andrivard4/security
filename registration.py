@@ -128,9 +128,10 @@ def loadFile() :
 
 def account_check() :
     if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log") :
-        print("User already registered! Remove ~/.securedrop to reset account.\n")
+        return 0
         exit(0)
     os.mkdir(os.path.expanduser("~") + "/.securedrop")
+    return 1
 
 account_check()
 getInput()
