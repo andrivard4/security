@@ -114,8 +114,7 @@ def encryptData() :
     salt = get_random_bytes(2)
     password_hash = SHA256.new()
     keyGen()
-    def update() :
-        password_hash.update(salt + password)
+    password_hash.update(salt + password.encode("utf8"))
     #we no longer want the unencrypted password to exist
     password = ""
     encrypted_password = password_hash.hexdigest()
