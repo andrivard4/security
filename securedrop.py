@@ -8,6 +8,7 @@ import getpass
 import os
 import sys
 
+# Global Variables
 username = "usr"
 email = "email"
 encrypted_password = ""
@@ -42,9 +43,12 @@ def validateRegistrationInput() :
     has_upper = 0;    has_lower = 0;
     error = 1;        errormess = "";
 
+    # While there is an error, keep looping
     while error == 1 or errormess != "":
         errormess = ""
         error = 0
+        
+        # Check if email is valid
         email_contents = email.split("@")
         if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == "." :
             errormess += "Email is invalid\n"
@@ -57,11 +61,11 @@ def validateRegistrationInput() :
         if password != confirm :
             errormess += "Passwords do not match\n"
             error = 1
-        # get rid of data in confirm variable, no longer used
+        # Get rid of data in confirm variable, no longer used
         confirm = ""
 
-        # check length of password
-        # if length is good, check to see if lower, upper, number, symbol
+        # Check length of password
+        # If length is good, check to see if lower, upper, number, symbol
         #  present in the password
         if len(password) < 8 or len(password) > 100 :
             errormess += "Password needs to be 8-100 characters in length\n"
@@ -83,8 +87,8 @@ def validateRegistrationInput() :
             errormess += "Password needs all of the following:\n number, uppercase letter, lowercase letter, symbol\n"
             error = 1
 
-        # if any error occured, call getInput and restart the loop
-        # otherwise continue
+        # If any error occured, call getInput and restart the loop
+        # Otherwise continue
         if(errormess == "" and error == 0) :
             return
         else :
@@ -92,6 +96,7 @@ def validateRegistrationInput() :
             getRegistrationInput()
 
 # Andrew
+# Generate Public key and Private key
 def keyGen() :
     global private_key
     global public_key
@@ -109,6 +114,7 @@ def keyGen() :
     public_key = RSA.import_key(key.publickey().export_key())
 
 # Andrew
+# Encrypt user password
 def encryptUserData() :
     #Encrypts the user data
     global salt
@@ -123,24 +129,26 @@ def encryptUserData() :
     encrypted_password = password_hash.hexdigest()
 
 # Andrew
+# Load ~/.securedrop/user.log and put in email, name, encrypted password, and public key
 def loadUserFile() :
     user = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
     user.write(json.dumps({'email':email, 'name': username, 'credentials' : salt.hex() + ":" + encrypted_password, 'pub' : public_key.export_key().hex()}));
     user.close()
 
+# Andrew
+# Checks if account is created
 def account_check() :
     if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log") :
         return 1
     os.mkdir(os.path.expanduser("~") + "/.securedrop")
     return 0
 
-# Get contact name and email
 # Cassie, Pooja
+# Get contact name and email
 def getContactInput():
     global input_name;    global input_email;
     input_name = input('Enter Contact Name:  ')
     input_email = input('Enter Contact Email:  ')
-
 
 #Validate email is an email address
 # Cassie, Pooja
@@ -163,9 +171,9 @@ def validateContactInput():
 
 
 # Cassie, Pooja
+# Decrypts ~/.securedrop/contacts.log should it exist
 def decryptContacts():
     global JSON_data
-
     # Get contact file and see if it exists
     try:
         contactfile = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "rb")
@@ -173,7 +181,6 @@ def decryptContacts():
         return
     if os.path.getsize( os.path.expanduser("~") + "/.securedrop/contacts.log" ) == 0:
         return
-
     # If contact file exists and there is contnet, decrypt
     enc_session_key, nonce, tag, ciphertext = \
         [ contactfile.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1) ]
@@ -182,13 +189,11 @@ def decryptContacts():
     cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
     JSON_data = json.loads(cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8'))
 
-
-#Add a contact to the JSON data
 # Cassie, Pooja
+#Add a contact to the JSON data
 def addContactsToFile():
     global input_name;    global input_email;
     global JSON_data
-
     for email in JSON_data:
         if input_email == email:
             print("This email already exists as a contact.\n")
@@ -197,10 +202,8 @@ def addContactsToFile():
     list.append({'name':input_name, 'email':input_email})
     JSON_data.update({'contacts': list})
 
-
-#Encrypt the contact info with the public key then write it to the contact file
-#The public key will be stored in the global variable public_key
 # Cassie, Pooja
+#Encrypt the contact info with the public key then write it to the contact file
 def encryptContacts():
     global input_name;    global input_email;
     global JSON_data
@@ -216,6 +219,8 @@ def encryptContacts():
     [ file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext) ]
     file_out.close()
 
+# Andrew
+# Gets information about user account
 def getAccountInfo():
     global email
     global salt
@@ -232,6 +237,8 @@ def getAccountInfo():
     hashed_password = account_data['credentials'].split(':')[1]
     public_key = RSA.import_key(bytes.fromhex(account_data['pub']))
 
+# Andrew
+# User login
 def autho_user():
     global private_key
     print("Log in for account ", email)
@@ -251,35 +258,41 @@ def autho_user():
         print("Login Failed!")
         exit()
 
+# Register a new user functions
 def register_user():
     getRegistrationInput()
     validateRegistrationInput()
     encryptUserData()
     loadUserFile()
 
+# Login user functions
 def login_user():
     getAccountInfo()
     autho_user()
 
+# Add contact functions
 def addContact():
     getContactInput()
     validateContactInput()
     addContactsToFile()
     encryptContacts()
 
+# User input functions
 def help():
     print("Type 'add' to add a new contact")
     print("Type 'list' to list all online ontacts")
     print("Type 'send' to transfer file to contact")
     print("Type 'exit' to exit SecureDrop")
 
+    
+    
+# Main functionality   
 if account_check():
     login_user()
     print("Welcome back ", username)
 else :
     register_user()
     print("Welcome to Securedrop", username)
-
 
 while(1):
     task = input('Securedrop > ')
