@@ -31,7 +31,7 @@ def validateInput():
 
     # Make sure email has *@*.* where *s are replaced with any character
     while error == 1:
-        print("validating input...")
+        print("Validating input...")
         email_contents = input_email.split("@")
         if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == "." :
             print("Email is invalid\n")
@@ -94,7 +94,6 @@ def addContactsToFile():
     global JSON_data
 
     print("Adding contact")
-    print("1", JSON_data)
     if JSON_data:
         JSON_data = json.loads(JSON_data)
         print("3", JSON_data)
@@ -104,7 +103,6 @@ def addContactsToFile():
                 return
     else :
         JSON_data = json.loads('{"contacts":[]}')
-    print("4", JSON_data)
     list = JSON_data['contacts']
     list.append({'name':input_name, 'email':input_email})
     JSON_data.update({'contacts': list})
