@@ -37,7 +37,7 @@ from Crypto.Protocol.KDF import PBKDF2
 # If no email given, return user's hashed email
 def getEmail(email):
     # Get own email
-    if(!email):
+    if(not email):
         account_file = open(os.path.expanduser("~") + "/.securedrop/user.log", "r")
         account_data = account_file.read()
         account_file.close()
@@ -45,7 +45,7 @@ def getEmail(email):
         email = account_data['email']
     # Return hash email
     return( SHA256.new(email) )
-    
+
 # Decrypt contacts file
 # For each email within that file, check if recieved hashed email is within
 # If not, return False
@@ -76,7 +76,7 @@ def checkEmail(newEmail):
                 return getEmail();
     return False
 
-    
+
 class tcp_handler(BaseRequestHandler):
     def handle(self):
         self.data = self.request.recv(1024).strip()
@@ -121,9 +121,3 @@ def tcp_client(port, data):
 
     print("Bytes Sent:     {}".format(data))
     print("Bytes Received: {}".format(received.decode()))
-
-
-
-
-
-
