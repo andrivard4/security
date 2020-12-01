@@ -330,7 +330,7 @@ def broadcast_listener(s, id, online):
                 # Check list of online ports, if found refresh it otherwise add
                 for element in online:
                     if element[1] == addr:
-                        online.remove(element) 
+                        online.remove(element)
                 online.append([data, addr, int(time.time())+10])
     except KeyboardInterrupt:
         pass
@@ -363,9 +363,8 @@ def IOManager(online):
             elif(task == 'exit'):
                 raise KeyboardInterrupt()
             elif(task == 'list'):
-                # decryptContacts()
-                print(online)
-                # print(JSON_data['contacts'])
+                decryptContacts()
+                print(verify_online_contacts(online))
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
@@ -374,6 +373,30 @@ def IOManager(online):
                 print("Unknown command, type help for help.")
     except KeyboardInterrupt:
         pass
+
+
+# Verify people in contacts who are online, given array of online users
+def verify_online_contacts(online):
+    global JSON_data
+    onlineContacts = []
+    # For each people, get hashed email
+    for person in online:
+        personEmail = person[0]
+        print("Hewwo Purrson")
+        for contacts in JSON_data['contacts']:
+            print("contacts:\n", contacts, "\n")
+            # print(contacts[0], "\n")
+            # print(contacts['name'], "\n")
+            contactName = contacts['name']
+            contactEmail = contacts['email']
+            entered_hash = SHA256.new()
+            entered_hash.update((contactEmail+contactName).encode("utf8"))
+            hashEmail = entered_hash.hexdigest()
+            # print("Person: ", personEmail, "\nHash: ", hashEmail.encode())
+            if personEmail == hashEmail.encode():
+                onlineContacts.append([contactName, contactEmail, person[1]])
+    return onlineContacts
+
 
 
 def main():
