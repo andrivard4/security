@@ -7,6 +7,10 @@ import json
 import getpass
 import os
 import sys
+import socket
+import time
+from queue import Queue
+from threading import Thread
 
 # Global Variables
 username = "usr"
@@ -21,10 +25,11 @@ JSON_data = json.loads('{"contacts":[]}')
 input_name = ""
 input_email = ""
 
+
 # Pooja
-def getRegistrationInput() :
-    #Get user input from command line
-    #Save it in the above variables
+def getRegistrationInput():
+    # Get user input from command line
+    # Save it in the above variables
     global username
     global email
     global password
@@ -34,9 +39,10 @@ def getRegistrationInput() :
     password = getpass.getpass(prompt='Enter Password: ')
     confirm = getpass.getpass(prompt='Re-enter Password: ')
 
+
 # Cassie
 # Validate Input from user
-def validateRegistrationInput() :
+def validateRegistrationInput():
     global username;    global email;
     global password;    global confirm;
     has_digit = 0;    has_symbol = 0;
@@ -47,18 +53,17 @@ def validateRegistrationInput() :
     while error == 1 or errormess != "":
         errormess = ""
         error = 0
-        
         # Check if email is valid
         email_contents = email.split("@")
-        if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == "." :
+        if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == ".":
             errormess += "Email is invalid\n"
             error = 1
-        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == ""  :
+        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == "" :
             errormess += "Email is invalid\n"
             error = 1
 
         # Make sure passwords match
-        if password != confirm :
+        if password != confirm:
             errormess += "Passwords do not match\n"
             error = 1
         # Get rid of data in confirm variable, no longer used
@@ -67,37 +72,37 @@ def validateRegistrationInput() :
         # Check length of password
         # If length is good, check to see if lower, upper, number, symbol
         #  present in the password
-        if len(password) < 8 or len(password) > 100 :
+        if len(password) < 8 or len(password) > 100:
             errormess += "Password needs to be 8-100 characters in length\n"
             error = 1
         else:
             for character in password:
-                if character.isdigit() :
+                if character.isdigit():
                     has_digit = 1
-                if character.islower() :
+                if character.islower():
                     has_lower = 1
-                if character.isupper() :
+                if character.isupper():
                     has_upper = 1
                 if not character.isalnum() and not character.isspace:
-                    has_symbol = 1;
-                if character.isspace() :
+                    has_symbol = 1
+                if character.isspace():
                     errormess += "Password cannot contain white space"
-                    error = 1;
-        if (has_digit + has_lower + has_upper + has_symbol) < 3 :
+                    error = 1
+        if (has_digit + has_lower + has_upper + has_symbol) < 3:
             errormess += "Password needs all of the following:\n number, uppercase letter, lowercase letter, symbol\n"
             error = 1
 
         # If any error occured, call getInput and restart the loop
         # Otherwise continue
-        if(errormess == "" and error == 0) :
+        if(errormess == "" and error == 0):
             return
-        else :
+        else:
             print(errormess)
             getRegistrationInput()
 
 # Andrew
 # Generate Public key and Private key
-def keyGen() :
+def keyGen():
     global private_key
     global public_key
     key = RSA.generate(2048)
@@ -113,10 +118,11 @@ def keyGen() :
     private_key = RSA.import_key(private_key)
     public_key = RSA.import_key(key.publickey().export_key())
 
+
 # Andrew
 # Encrypt user password
-def encryptUserData() :
-    #Encrypts the user data
+def encryptUserData():
+    # Encrypts the user data
     global salt
     global encrypted_password
     global password
@@ -124,24 +130,26 @@ def encryptUserData() :
     password_hash = SHA256.new()
     keyGen()
     password_hash.update(salt + password.encode("utf8"))
-    #we no longer want the unencrypted password to exist
+    # we no longer want the unencrypted password to exist
     password = ""
     encrypted_password = password_hash.hexdigest()
 
+
 # Andrew
 # Load ~/.securedrop/user.log and put in email, name, encrypted password, and public key
-def loadUserFile() :
+def loadUserFile():
     user = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
-    user.write(json.dumps({'email':email, 'name': username, 'credentials' : salt.hex() + ":" + encrypted_password, 'pub' : public_key.export_key().hex()}));
+    user.write(json.dumps({'email':email, 'name': username, 'credentials' : salt.hex() + ":" + encrypted_password, 'pub' : public_key.export_key().hex()}))
     user.close()
 
 # Andrew
 # Checks if account is created
-def account_check() :
-    if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log") :
+def account_check():
+    if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log"):
         return 1
     os.mkdir(os.path.expanduser("~") + "/.securedrop")
     return 0
+
 
 # Cassie, Pooja
 # Get contact name and email
@@ -150,24 +158,25 @@ def getContactInput():
     input_name = input('Enter Contact Name:  ')
     input_email = input('Enter Contact Email:  ')
 
+
 #Validate email is an email address
 # Cassie, Pooja
 def validateContactInput():
-    global input_email;
-    error = 1;
+    global input_email
+    error = 1
 
     # Make sure email has *@*.* where *s are replaced with any character
     while error == 1:
         email_contents = input_email.split("@")
-        if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == "." :
+        if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == ".":
             print("Email is invalid\n")
-        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == ""  :
+        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == "":
             print("Email is invalid\n")
         else:
-            error = 0;
+            error = 0
 
         if error == 1:
-            getContactInput();
+            getContactInput()
 
 
 # Cassie, Pooja
@@ -189,8 +198,9 @@ def decryptContacts():
     cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
     JSON_data = json.loads(cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8'))
 
+
 # Cassie, Pooja
-#Add a contact to the JSON data
+# Add a contact to the JSON data
 def addContactsToFile():
     global input_name;    global input_email;
     global JSON_data
@@ -201,6 +211,7 @@ def addContactsToFile():
     list = JSON_data['contacts']
     list.append({'name':input_name, 'email':input_email})
     JSON_data.update({'contacts': list})
+
 
 # Cassie, Pooja
 #Encrypt the contact info with the public key then write it to the contact file
@@ -218,6 +229,7 @@ def encryptContacts():
     ciphertext, tag = cipher_aes.encrypt_and_digest(json.dumps(JSON_data, indent=2).encode('utf-8'))
     [ file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext) ]
     file_out.close()
+
 
 # Andrew
 # Gets information about user account
@@ -237,6 +249,7 @@ def getAccountInfo():
     hashed_password = account_data['credentials'].split(':')[1]
     public_key = RSA.import_key(bytes.fromhex(account_data['pub']))
 
+
 # Andrew
 # User login
 def autho_user():
@@ -251,12 +264,13 @@ def autho_user():
         nonce = key_file.read(16)
         tag = key_file.read(16)
         encrypted_key = key_file.read(-1)
-        key_file.close();
+        key_file.close()
         cipher = AES.new(PBKDF2(password, bytes.fromhex(salt), dkLen=16), AES.MODE_EAX, nonce)
         private_key = RSA.import_key(cipher.decrypt_and_verify(encrypted_key,tag))
     else:
         print("Login Failed!")
         exit()
+
 
 # Register a new user functions
 def register_user():
@@ -265,10 +279,12 @@ def register_user():
     encryptUserData()
     loadUserFile()
 
+
 # Login user functions
 def login_user():
     getAccountInfo()
     autho_user()
+
 
 # Add contact functions
 def addContact():
@@ -277,6 +293,7 @@ def addContact():
     addContactsToFile()
     encryptContacts()
 
+
 # User input functions
 def help():
     print("Type 'add' to add a new contact")
@@ -284,29 +301,112 @@ def help():
     print("Type 'send' to transfer file to contact")
     print("Type 'exit' to exit SecureDrop")
 
-    
-    
-# Main functionality   
-if account_check():
-    login_user()
-    print("Welcome back ", username)
-else :
-    register_user()
-    print("Welcome to Securedrop", username)
 
-while(1):
-    task = input('Securedrop > ')
-    if (task == 'add'):
-        addContact()
-    elif(task == 'exit'):
-        input("Terminating Securedrop...")
-        exit(1)
-    elif(task == 'list'):
-        decryptContacts()
-        print(JSON_data['contacts'])
-    elif(task == 'help'):
-        help()
-    elif(task == 'send'):
-        print("Not currently available")
+def broadcast_listener(socket, id, q):
+    online = []
+    ignore = 0
+    try:
+        while True:
+            # Retrieves a broadcast
+            data, addr = socket.recvfrom(512)
+            # Remove elements that have expired (maybe do this later)
+            for element in online:
+                if element[2] < int(time.time()):
+                    online.remove(element)
+            # Setup to ignore broacasts from ourself
+            if data == id:
+                ignore = addr[1]
+            # Now ignoring our own broadcasts
+            if not addr[1] == ignore:
+                # Check list of online ports, if found refresh it otherwise add
+                for element in online:
+                    if element[1] == addr[1]:
+                        online.remove(element)
+                online.append([data, addr[1], int(time.time())+10])
+                q.empty()
+            q.put(online)
+    except KeyboardInterrupt:
+        pass
+
+
+def broadcast_sender(port, id):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        entered_hash = SHA256.new()
+        entered_hash.update((email+username).encode("utf8"))
+        msg = entered_hash.hexdigest()
+        s.sendto(id, ('255.255.255.255', port))
+        while True:
+            s.sendto(msg.encode('utf-8'), ('255.255.255.255', port))
+            time.sleep(5)
+    except KeyboardInterrupt:
+        pass
+
+
+def communication_manager(q, procs):
+    bcast_port = 1337
+    id = get_random_bytes(16)
+
+    # broadcast to other users that you exist
+    broadcast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+    # Enable broadcasting mode
+    broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    broadcast_socket.bind(('', bcast_port))
+    broadcast_listener_worker = Thread(target=broadcast_listener, args=(broadcast_socket, id, q))
+    broadcast_sender_worker = Thread(target=broadcast_sender, args=(bcast_port, id))
+    procs.append(broadcast_listener_worker)
+    procs.append(broadcast_sender_worker)
+    return procs
+
+
+def IOManager(q):
+    while(1):
+        task = input('Securedrop > ')
+        if (task == 'add'):
+            addContact()
+        elif(task == 'exit'):
+            print("Terminating Securedrop...")
+            exit(1)
+        elif(task == 'list'):
+            # decryptContacts()
+            print(q.get())
+            # print(JSON_data['contacts'])
+        elif(task == 'help'):
+            help()
+        elif(task == 'send'):
+            print("Not currently available")
+        else:
+            print("Unknown command, type help for help.")
+
+
+def main():
+    # Main functionality
+    if account_check():
+        login_user()
+        print("Welcome back ", username)
     else:
-        print("Unknown command, type help for help.")
+        register_user()
+        print("Welcome to Securedrop", username)
+
+    queue = Queue()
+    procs = list()
+
+    IOManager_worker = Thread(target=IOManager, args=(queue,))
+    procs.append(IOManager_worker)
+    procs = communication_manager(queue, procs)
+
+    try:
+        for p in procs:
+            p.start()
+
+    except KeyboardInterrupt:
+        for p in procs:
+            p.join()
+
+
+if __name__ == '__main__':
+    main()
