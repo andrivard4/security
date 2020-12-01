@@ -9,8 +9,7 @@ import os
 import sys
 import socket
 import time
-from queue import Queue
-from threading import Thread
+from multiprocessing import Process, Manager
 
 # Global Variables
 username = "usr"
@@ -43,11 +42,16 @@ def getRegistrationInput():
 # Cassie
 # Validate Input from user
 def validateRegistrationInput():
-    global username;    global email;
-    global password;    global confirm;
-    has_digit = 0;    has_symbol = 0;
-    has_upper = 0;    has_lower = 0;
-    error = 1;        errormess = "";
+    global username
+    global email
+    global password
+    global confirm
+    has_digit = 0
+    has_symbol = 0
+    has_upper = 0
+    has_lower = 0
+    error = 1
+    errormess = ""
 
     # While there is an error, keep looping
     while error == 1 or errormess != "":
@@ -58,7 +62,7 @@ def validateRegistrationInput():
         if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == ".":
             errormess += "Email is invalid\n"
             error = 1
-        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == "" :
+        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == "":
             errormess += "Email is invalid\n"
             error = 1
 
@@ -100,6 +104,7 @@ def validateRegistrationInput():
             print(errormess)
             getRegistrationInput()
 
+
 # Andrew
 # Generate Public key and Private key
 def keyGen():
@@ -139,8 +144,9 @@ def encryptUserData():
 # Load ~/.securedrop/user.log and put in email, name, encrypted password, and public key
 def loadUserFile():
     user = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
-    user.write(json.dumps({'email':email, 'name': username, 'credentials' : salt.hex() + ":" + encrypted_password, 'pub' : public_key.export_key().hex()}))
+    user.write(json.dumps({'email': email, 'name': username, 'credentials': salt.hex() + ":" + encrypted_password, 'pub': public_key.export_key().hex()}))
     user.close()
+
 
 # Andrew
 # Checks if account is created
@@ -154,12 +160,13 @@ def account_check():
 # Cassie, Pooja
 # Get contact name and email
 def getContactInput():
-    global input_name;    global input_email;
+    global input_name
+    global input_email
     input_name = input('Enter Contact Name:  ')
     input_email = input('Enter Contact Email:  ')
 
 
-#Validate email is an email address
+# Validate email is an email address
 # Cassie, Pooja
 def validateContactInput():
     global input_email
@@ -188,11 +195,11 @@ def decryptContacts():
         contactfile = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "rb")
     except (OSError, IOError):
         return
-    if os.path.getsize( os.path.expanduser("~") + "/.securedrop/contacts.log" ) == 0:
+    if os.path.getsize(os.path.expanduser("~") + "/.securedrop/contacts.log") == 0:
         return
     # If contact file exists and there is contnet, decrypt
     enc_session_key, nonce, tag, ciphertext = \
-        [ contactfile.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1) ]
+        [contactfile.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1)]
     cipher_rsa = PKCS1_OAEP.new(private_key)
     session_key = cipher_rsa.decrypt(enc_session_key)
     cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
@@ -202,21 +209,23 @@ def decryptContacts():
 # Cassie, Pooja
 # Add a contact to the JSON data
 def addContactsToFile():
-    global input_name;    global input_email;
+    global input_name
+    global input_email
     global JSON_data
     for email in JSON_data:
         if input_email == email:
             print("This email already exists as a contact.\n")
             return
     list = JSON_data['contacts']
-    list.append({'name':input_name, 'email':input_email})
+    list.append({'name': input_name, 'email': input_email})
     JSON_data.update({'contacts': list})
 
 
 # Cassie, Pooja
-#Encrypt the contact info with the public key then write it to the contact file
+# Encrypt the contact info with the public key then write it to the contact file
 def encryptContacts():
-    global input_name;    global input_email;
+    global input_name
+    global input_email
     global JSON_data
 
     if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
@@ -227,7 +236,7 @@ def encryptContacts():
     enc_session_key = cipher_rsa.encrypt(session_key)
     cipher_aes = AES.new(session_key, AES.MODE_EAX)
     ciphertext, tag = cipher_aes.encrypt_and_digest(json.dumps(JSON_data, indent=2).encode('utf-8'))
-    [ file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext) ]
+    [file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
     file_out.close()
 
 
@@ -266,7 +275,7 @@ def autho_user():
         encrypted_key = key_file.read(-1)
         key_file.close()
         cipher = AES.new(PBKDF2(password, bytes.fromhex(salt), dkLen=16), AES.MODE_EAX, nonce)
-        private_key = RSA.import_key(cipher.decrypt_and_verify(encrypted_key,tag))
+        private_key = RSA.import_key(cipher.decrypt_and_verify(encrypted_key, tag))
     else:
         print("Login Failed!")
         exit()
@@ -302,29 +311,27 @@ def help():
     print("Type 'exit' to exit SecureDrop")
 
 
-def broadcast_listener(socket, id, q):
-    online = []
+def broadcast_listener(s, id, online):
+
     ignore = 0
     try:
         while True:
             # Retrieves a broadcast
-            data, addr = socket.recvfrom(512)
+            data, addr = s.recvfrom(512)
             # Remove elements that have expired (maybe do this later)
             for element in online:
                 if element[2] < int(time.time()):
                     online.remove(element)
             # Setup to ignore broacasts from ourself
             if data == id:
-                ignore = addr[1]
+                ignore = addr
             # Now ignoring our own broadcasts
-            if not addr[1] == ignore:
+            if not addr == ignore:
                 # Check list of online ports, if found refresh it otherwise add
                 for element in online:
-                    if element[1] == addr[1]:
+                    if element[1] == addr:
                         online.remove(element)
-                online.append([data, addr[1], int(time.time())+10])
-                q.empty()
-            q.put(online)
+                online.append([data, addr, int(time.time())+10])
     except KeyboardInterrupt:
         pass
 
@@ -345,42 +352,28 @@ def broadcast_sender(port, id):
         pass
 
 
-def communication_manager(q, procs):
-    bcast_port = 1337
-    id = get_random_bytes(16)
-
-    # broadcast to other users that you exist
-    broadcast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
-    # Enable broadcasting mode
-    broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    broadcast_socket.bind(('', bcast_port))
-    broadcast_listener_worker = Thread(target=broadcast_listener, args=(broadcast_socket, id, q))
-    broadcast_sender_worker = Thread(target=broadcast_sender, args=(bcast_port, id))
-    procs.append(broadcast_listener_worker)
-    procs.append(broadcast_sender_worker)
-    return procs
-
-
-def IOManager(q):
-    while(1):
-        task = input('Securedrop > ')
-        if (task == 'add'):
-            addContact()
-        elif(task == 'exit'):
-            print("Terminating Securedrop...")
-            exit(1)
-        elif(task == 'list'):
-            # decryptContacts()
-            print(q.get())
-            # print(JSON_data['contacts'])
-        elif(task == 'help'):
-            help()
-        elif(task == 'send'):
-            print("Not currently available")
-        else:
-            print("Unknown command, type help for help.")
+def IOManager(online):
+    sys.stdin.close()
+    sys.stdin = open('/dev/stdin')
+    try:
+        while(1):
+            task = input('Securedrop > ')
+            if (task == 'add'):
+                addContact()
+            elif(task == 'exit'):
+                raise KeyboardInterrupt()
+            elif(task == 'list'):
+                # decryptContacts()
+                print(online)
+                # print(JSON_data['contacts'])
+            elif(task == 'help'):
+                help()
+            elif(task == 'send'):
+                print("Not currently available")
+            else:
+                print("Unknown command, type help for help.")
+    except KeyboardInterrupt:
+        pass
 
 
 def main():
@@ -392,20 +385,37 @@ def main():
         register_user()
         print("Welcome to Securedrop", username)
 
-    queue = Queue()
+    online = Manager().list()
     procs = list()
+    id = get_random_bytes(16)
+    # listen for other broadcasts on network
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
-    IOManager_worker = Thread(target=IOManager, args=(queue,))
+    s.bind(('', 1337))
+
+    IOManager_worker = Process(target=IOManager, args=(online,))
+
+    broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online))
+    broadcast_sender_worker = Process(target=broadcast_sender, args=(1337, id))
+    procs.append(broadcast_listener_worker)
+    procs.append(broadcast_sender_worker)
     procs.append(IOManager_worker)
-    procs = communication_manager(queue, procs)
 
     try:
+        sys.stdin.close()
         for p in procs:
             p.start()
+        while True:
+            time.sleep(1)
 
     except KeyboardInterrupt:
         for p in procs:
-            p.join()
+            if p.is_alive():
+                p.terminate()
+                time.sleep(0.1)
+            if not p.is_alive():
+                p.join()
 
 
 if __name__ == '__main__':
