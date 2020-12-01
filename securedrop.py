@@ -330,7 +330,7 @@ def broadcast_listener(s, id, online):
                 # Check list of online ports, if found refresh it otherwise add
                 for element in online:
                     if element[1] == addr:
-                        online.remove(element)
+                        online.remove(element) 
                 online.append([data, addr, int(time.time())+10])
     except KeyboardInterrupt:
         pass
