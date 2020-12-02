@@ -12,19 +12,6 @@ import socket
 import time
 from multiprocessing import Process, Manager
 
-# Global Variables
-username = "usr"
-email = "email"
-encrypted_password = ""
-salt = ''
-password = "Password"
-confirm = "conf"
-public_key = ""
-private_key = ""
-JSON_data = json.loads('{"contacts":[]}')
-input_name = ""
-input_email = ""
-
 class User:
 
     def __init__(self, name, email, public, private, password, salt):
@@ -36,64 +23,70 @@ class User:
         self.salt = salt
         self.contacts = []
 
-    def export(self):
-        return {
-            'name': self.name,
-            'email': self.email,
-            'public_key': self.public_key,
-            'private_key': self.private_key,
-            'hashed_password': self.hashed_password,
-            'salt': self.salt,
-            'contacts': self.contacts
-        }
+    def getContacts(self):
+        return self.contacts
+
+    def addContact(self, name, email):
+        self.contacts.append({'name': name, 'email': email, 'public_key': ''})
+
+    # Cassie, Pooja
+    # Encrypt the contact info with the public key then write it to the contact file
+    def saveUserData(self):
+        if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
+            os.mkdir(os.path.expanduser("~") + "/.securedrop")
+
+        file_out = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "wb")
+        session_key = get_random_bytes(16)
+        cipher_rsa = PKCS1_OAEP.new(self.public_key)
+        enc_session_key = cipher_rsa.encrypt(session_key)
+        cipher_aes = AES.new(session_key, AES.MODE_EAX)
+
+        user_data_json = json.dumps({'contacts': self.contacts}, indent=2)
+
+        ciphertext, tag = cipher_aes.encrypt_and_digest(user_data_json.encode('utf-8'))
+        [file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
+        file_out.close()
+
+    def toPrint(self):
+        print("name: ", self.name)
+        print("email: ", self.email)
+        print("contacts: ", self.contacts)
+        print("public_key: ", self.public_key)
+        print("private_key: ", self.private_key)
+        print("hashed_password: ", self.hashed_password)
+        print("salt: ", self.salt)
+
+    def export_keys(self):
+        if self.public_key is not None:
+            self.public_key = self.public_key.publickey().export_key()
+        if self.private_key is not None:
+            self.private_key = self.private_key.export_key()
+
+    def import_keys(self):
+        if self.public_key is not None:
+            self.public_key = RSA.import_key(self.public_key)
+        if self.private_key is not None:
+            self.private_key = RSA.import_key(self.private_key)
 
 
-# Cassie, Pooja
-# Encrypt the contact info with the public key then write it to the contact file
-def saveUserData(user):
-    if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
-        os.mkdir(os.path.expanduser("~") + "/.securedrop")
-
-    file_out = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "wb")
-    session_key = get_random_bytes(16)
-    cipher_rsa = PKCS1_OAEP.new(user.public_key)
-    enc_session_key = cipher_rsa.encrypt(session_key)
-    cipher_aes = AES.new(session_key, AES.MODE_EAX)
-
-    user_data_json = json.dumps({'contacts': user.contacts}, indent=2)
-
-    ciphertext, tag = cipher_aes.encrypt_and_digest(user_data_json.encode('utf-8'))
-    [file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
-    file_out.close()
-
-def toPrint(user):
-    print("name: ", user['name'])
-    print("email: ", user['email'])
-    print("contacts: ", user['contacts'])
-    print("public_key: ", user['public_key'])
-    print("private_key: ", user['private_key'])
-    print("hashed_password: ", user['hashed_password'])
-    print("salt: ", user['salt'])
-
-
-# Cassie, Pooja
-# Decrypts ~/.securedrop/contacts.log should it exist
-def loadUserFileData(user):
-    # Get contact file and see if it exists
-    try:
-        contactfile = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "rb")
-    except (OSError, IOError):
-        return
-    if os.path.getsize(os.path.expanduser("~") + "/.securedrop/contacts.log") == 0:
-        return
-    # If contact file exists and there is contnet, decrypt
-    enc_session_key, nonce, tag, ciphertext = \
-        [contactfile.read(x) for x in (user.private_key.size_in_bytes(), 16, 16, -1)]
-    cipher_rsa = PKCS1_OAEP.new(user.private_key)
-    session_key = cipher_rsa.decrypt(enc_session_key)
-    cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
-    JSON_data = json.loads(cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8'))
-    user.contacts = JSON_data['contacts']
+    # Cassie, Pooja
+    # Decrypts ~/.securedrop/contacts.log should it exist
+    def loadUserData(self):
+        # Get contact file and see if it exists
+        try:
+            contactfile = open(os.path.expanduser("~") + "/.securedrop/contacts.log", "rb")
+        except (OSError, IOError):
+            return
+        if os.path.getsize(os.path.expanduser("~") + "/.securedrop/contacts.log") == 0:
+            return
+        # If contact file exists and there is contnet, decrypt
+        enc_session_key, nonce, tag, ciphertext = \
+            [contactfile.read(x) for x in (self.private_key.size_in_bytes(), 16, 16, -1)]
+        cipher_rsa = PKCS1_OAEP.new(self.private_key)
+        session_key = cipher_rsa.decrypt(enc_session_key)
+        cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
+        JSON_data = json.loads(cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8'))
+        self.contacts = JSON_data['contacts']
 
 
 # Pooja
@@ -110,7 +103,6 @@ def getRegistrationInput():
 # Cassie
 # Validate Input from user
 def validateRegistrationInput(input):
-    name = input['name']
     email = input['email']
     password = input['password']
     confirm = input['confirm']
@@ -175,7 +167,7 @@ def validateRegistrationInput(input):
 
 # Andrew
 # Generate Public key and Private key
-def keyGen():
+def keyGen(password, salt):
     key = RSA.generate(2048)
     private_key = key.export_key()
     file_out = open(os.path.expanduser("~") + "/.securedrop/private.pem", "wb")
@@ -198,7 +190,7 @@ def encryptUserData(input):
     password = input['password']
     salt = get_random_bytes(2)
     password_hasher = SHA256.new()
-    private_key, public_key = keyGen()
+    private_key, public_key = keyGen(password, salt)
 
     password_hasher.update(salt + password.encode("utf8"))
     encrypted_password = password_hasher.hexdigest()
@@ -249,30 +241,27 @@ def getContactInput():
 # Cassie, Pooja
 def validateContactInput(inputs):
     name, email = inputs
-    error = 1
 
     # Make sure email has *@*.* where *s are replaced with any character
-    while error == 1:
-        email_contents = input_email.split("@")
-        if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == ".":
-            print("Email is invalid\n")
-        elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == "":
-            print("Email is invalid\n")
-        else:
-            error = 0
-
-        return not error == 1
+    email_contents = email.split("@")
+    if len(email_contents) != 2 or email_contents[1] == "" or email_contents[1][0] == ".":
+        print("Email is invalid\n")
+    elif len(email_contents[1].split(".")) != 2 or email_contents[1].split(".")[1] == "":
+        print("Email is invalid\n")
+    else:
+        return True
+    return False
 
 
 # Cassie, Pooja
 # Add a contact to the JSON data
 def addContactsToFile(user, inputs):
-    input_name, input_email = input
-    for email in user.contacts:
+    input_name, input_email = inputs
+    for email in user.getContacts():
         if input_email == email:
             print("This email already exists as a contact.\n")
             return
-    user.contacts.append({'name': input_name, 'email': input_email, 'public_key': ''})
+    user.addContact(input_name, input_email)
 
 
 # Andrew
@@ -287,7 +276,7 @@ def getAccountInfo():
     salt = account_data['credentials'].split(':')[0]
     hashed_password = account_data['credentials'].split(':')[1]
     public_key = RSA.import_key(bytes.fromhex(account_data['pub']))
-    return User(email, name, public_key, None, hashed_password, salt)
+    return User(name, email, public_key, None, hashed_password, salt)
 
 
 # Andrew
@@ -310,7 +299,7 @@ def autho_user(user):
 
         cipher = AES.new(
             PBKDF2(pswd_input,
-                   bytes.fromhex(salt),
+                   bytes.fromhex(user.salt),
                    dkLen=16
                    ),
             AES.MODE_EAX,
@@ -318,6 +307,7 @@ def autho_user(user):
         )
         private_key = RSA.import_key(cipher.decrypt_and_verify(encrypted_key, tag))
         user.private_key = private_key
+        user.loadUserData()
         return user
     else:
         print("Login Failed!")
@@ -337,7 +327,6 @@ def register_user():
 # Login user functions
 def login_user():
     user = autho_user(getAccountInfo())
-    loadUserFileData(user)
     return user
 
 
@@ -346,8 +335,8 @@ def addContact(user):
     inputs = getContactInput()
     while not validateContactInput(inputs):
         inputs = getContactInput()
-    addContactsToFile()
-    saveUserData(user)
+    addContactsToFile(user, inputs)
+    user.saveUserData()
 
 
 # User input functions
@@ -383,14 +372,16 @@ def broadcast_listener(s, id, online):
         pass
 
 
-def broadcast_sender(port, id):
+def broadcast_sender(port, id, user):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         entered_hash = SHA256.new()
-        entered_hash.update((email+username).encode("utf8"))
+        print(user.email, user.name)
+        entered_hash.update((user.email+user.name).encode("utf8"))
         msg = entered_hash.hexdigest()
+        print(msg)
         s.sendto(id, ('255.255.255.255', port))
         while True:
             s.sendto(msg.encode('utf-8'), ('255.255.255.255', port))
@@ -400,6 +391,7 @@ def broadcast_sender(port, id):
 
 
 def IOManager(online, user):
+    user.import_keys()
     sys.stdin.close()
     sys.stdin = open('/dev/stdin')
     try:
@@ -410,8 +402,7 @@ def IOManager(online, user):
             elif(task == 'exit'):
                 raise KeyboardInterrupt()
             elif(task == 'list'):
-                # print(verify_online_contacts(online))
-                print("list")
+                print(verify_online_contacts(online, user))
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
@@ -423,25 +414,22 @@ def IOManager(online, user):
 
 
 # Verify people in contacts who are online, given array of online users
-def verify_online_contacts(online):
-    global JSON_data
+def verify_online_contacts(online, user):
     onlineContacts = []
     # For each people, get hashed email
-    for person in online:
-        personEmail = person[0]
-        print("Hewwo Purrson")
-        for contacts in JSON_data['contacts']:
-            print("contacts:\n", contacts, "\n")
-            # print(contacts[0], "\n")
-            # print(contacts['name'], "\n")
-            contactName = contacts['name']
-            contactEmail = contacts['email']
+    for client in online:
+        print(client)
+        clientEmail = client[0]
+        print(user.contacts)
+        for contact in user.contacts:
+            contactName = contact['name']
+            contactEmail = contact['email']
             entered_hash = SHA256.new()
             entered_hash.update((contactEmail+contactName).encode("utf8"))
             hashEmail = entered_hash.hexdigest()
-            # print("Person: ", personEmail, "\nHash: ", hashEmail.encode())
-            if personEmail == hashEmail.encode():
-                onlineContacts.append([contactName, contactEmail, person[1]])
+            print(clientEmail, hashEmail.encode())
+            if clientEmail == hashEmail.encode():
+                onlineContacts.append([contactName, contactEmail, client[1]])
     return onlineContacts
 
 
@@ -515,18 +503,16 @@ def main():
 
     s.bind(('', 1337))
 
-    user = user.export()
-
-    toPrint(user)
+    user.export_keys()
 
     IOManager_worker = Process(target=IOManager, args=(online, user,))
     # tcpServer_worker = Process(target=tcpServer)
     # tcpClient_worker = Process(target=tcpClient)
 
-    # broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online))
-    # broadcast_sender_worker = Process(target=broadcast_sender, args=(1337, id))
-    # procs.append(broadcast_listener_worker)
-    # procs.append(broadcast_sender_worker)
+    broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online,))
+    broadcast_sender_worker = Process(target=broadcast_sender, args=(1337, id,  user,))
+    procs.append(broadcast_listener_worker)
+    procs.append(broadcast_sender_worker)
     procs.append(IOManager_worker)
     # procs.append(tcpServer_worker)
     # procs.append(tcpClient_worker)
