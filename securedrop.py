@@ -10,7 +10,10 @@ import os
 import sys
 import socket
 import time
+import threading
+import queue
 from multiprocessing import Process, Manager
+
 
 class User:
 
@@ -22,12 +25,16 @@ class User:
         self.hashed_password = password
         self.salt = salt
         self.contacts = []
+        entered_hash = SHA256.new()
+        entered_hash.update((self.email+self.name).encode("utf8"))
+        self.hashed_ideneity = entered_hash.hexdigest()
 
     def getContacts(self):
         return self.contacts
 
     def addContact(self, name, email):
         self.contacts.append({'name': name, 'email': email, 'public_key': ''})
+
 
     # Cassie, Pooja
     # Encrypt the contact info with the public key then write it to the contact file
@@ -68,7 +75,6 @@ class User:
         if self.private_key is not None:
             self.private_key = RSA.import_key(self.private_key)
 
-
     # Cassie, Pooja
     # Decrypts ~/.securedrop/contacts.log should it exist
     def loadUserData(self):
@@ -87,6 +93,15 @@ class User:
         cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
         JSON_data = json.loads(cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8'))
         self.contacts = JSON_data['contacts']
+
+
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    address = s.getsockname()
+    print(address)
+    s.close()
+    return address
 
 
 # Pooja
@@ -377,20 +392,44 @@ def broadcast_sender(port, id, user):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        entered_hash = SHA256.new()
-        print(user.email, user.name)
-        entered_hash.update((user.email+user.name).encode("utf8"))
-        msg = entered_hash.hexdigest()
-        print(msg)
         s.sendto(id, ('255.255.255.255', port))
         while True:
-            s.sendto(msg.encode('utf-8'), ('255.255.255.255', port))
+            s.sendto(user.hashed_ideneity.encode('utf-8'), ('255.255.255.255', port))
             time.sleep(5)
     except KeyboardInterrupt:
         pass
 
 
-def IOManager(online, user):
+def contactHandler(requests, responses, user, server_address):
+    active_requests = []
+    requests.append(1)
+    # Create a tcp server thread for every online contact
+    for request in requests:
+        request_thread = threading.Thread(target=tcpClient, args=(request, responses, server_address,))
+        active_requests.append(request_thread)
+
+    for trd in active_requests:
+        trd.start()
+
+    for trd in active_requests:
+        trd.join()
+
+
+def listContacts(online, user, server_address):
+    requests = list()
+    responses = queue.Queue()
+    my_online_contacts = verify_online_contacts(online, user)
+
+    for contact in my_online_contacts:
+        address = contact[2]
+        requests.append(address)
+
+    contactHandler(requests, responses, user, server_address)
+
+    print(my_online_contacts)
+
+
+def IOManager(online, user, server_address):
     user.import_keys()
     sys.stdin.close()
     sys.stdin = open('/dev/stdin')
@@ -402,7 +441,8 @@ def IOManager(online, user):
             elif(task == 'exit'):
                 raise KeyboardInterrupt()
             elif(task == 'list'):
-                print(verify_online_contacts(online, user))
+                print(online)
+                print(listContacts(online, user, server_address))
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
@@ -418,70 +458,71 @@ def verify_online_contacts(online, user):
     onlineContacts = []
     # For each people, get hashed email
     for client in online:
-        print(client)
         clientEmail = client[0]
-        print(user.contacts)
         for contact in user.contacts:
             contactName = contact['name']
             contactEmail = contact['email']
             entered_hash = SHA256.new()
             entered_hash.update((contactEmail+contactName).encode("utf8"))
             hashEmail = entered_hash.hexdigest()
-            print(clientEmail, hashEmail.encode())
             if clientEmail == hashEmail.encode():
                 onlineContacts.append([contactName, contactEmail, client[1]])
     return onlineContacts
 
 
-def tcpServer():
+def tcpServer(ideneity, server_address):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = ('0.0.0.0', 10000)
     sock.bind(server_address)
     sock.listen(1)
+    try:
+        while True:
+            print('waiting for a connection')
+            connection, client_address = sock.accept()
+            try:
+                print('connection from', client_address)
+                # Receive the data in small chunks and retransmit it
+                while True:
+                    data = connection.recv(16)
+                    print('received "%s"' % data)
+                    if data:
+                        print('sending data back to the client')
+                        connection.sendall(data)
+                    else:
+                        print('no more data from', client_address)
+                        break
+            finally:
+                # Clean up the connection
+                connection.close()
+    except KeyboardInterrupt:
+        pass
 
-    while True:
-        print('waiting for a connection')
-        connection, client_address = sock.accept()
-        try:
-            print('connection from', client_address)
-            # Receive the data in small chunks and retransmit it
-            while True:
-                data = connection.recv(16)
-                print('received "%s"' % data)
-                if data:
-                    print('sending data back to the client')
-                    connection.sendall(data)
-                else:
-                    print('no more data from', client_address)
-                    break
-        finally:
-            # Clean up the connection
-            connection.close()
 
+def tcpClient(requests, response, server_address):
 
-def tcpClient():
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    # Connect the socket to the port where the server is listening
-    server_address = ('0.0.0.0', 10000)
     print('connecting to %s port %s' % server_address)
-    sock.connect(server_address)
-    try:
-        # Send data
-        message = 'This is the message.  It will be repeated.'
-        print('sending "%s"' % message)
-        sock.sendall(message)
-        # Look for the response
-        amount_received = 0
-        amount_expected = len(message)
-        while amount_received < amount_expected:
-            data = sock.recv(16)
-            amount_received += len(data)
-            print('received "%s"' % data)
-    finally:
-        print('closing socket')
-        sock.close()
+    while True:
+        try:
+            sock.connect(server_address)
+            # Send data
+            message = 'Test.'
+            print('sending "%s"' % message)
+            sock.sendall(message.encode())
+            # Look for the response
+            amount_received = 0
+            amount_expected = len(message)
+            while amount_received < amount_expected:
+                data = sock.recv(32)
+                amount_received += len(data)
+                print('received "%s"' % data)
+        except:
+            print("Error with tcp sending.... trying again")
+            continue
+        finally:
+            print('closing socket')
+            sock.close()
+            break
 
 
 def main():
@@ -494,6 +535,8 @@ def main():
         user = register_user()
         print("Welcome to Securedrop", user.name)
 
+    address = get_ip_address()
+
     online = Manager().list()
     procs = list()
     id = get_random_bytes(16)
@@ -501,21 +544,18 @@ def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 
-    s.bind(('', 1337))
+    s.bind(('', 1338))
 
     user.export_keys()
 
-    IOManager_worker = Process(target=IOManager, args=(online, user,))
-    # tcpServer_worker = Process(target=tcpServer)
-    # tcpClient_worker = Process(target=tcpClient)
-
+    IOManager_worker = Process(target=IOManager, args=(online, user,address))
+    TPCServer_manager = Process(target=tcpServer, args=(user.hashed_ideneity,address))
     broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online,))
-    broadcast_sender_worker = Process(target=broadcast_sender, args=(1337, id,  user,))
+    broadcast_sender_worker = Process(target=broadcast_sender, args=(1338, id,  user,))
     procs.append(broadcast_listener_worker)
     procs.append(broadcast_sender_worker)
     procs.append(IOManager_worker)
-    # procs.append(tcpServer_worker)
-    # procs.append(tcpClient_worker)
+    procs.append(TPCServer_manager)
 
     try:
         sys.stdin.close()

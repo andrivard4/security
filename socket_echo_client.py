@@ -1,9 +1,13 @@
 import socket
+
+host = '192.168.0.18'
+port = 4000
+
 # Create a TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Connect the socket to the port where the server is listening
-server_address = ('255.255.255.255', 10000)
+server_address = (host, port)
 print('connecting to %s port %s' % server_address)
 sock.connect(server_address)
 try:
