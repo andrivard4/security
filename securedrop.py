@@ -494,10 +494,18 @@ def tcpServer(ideneity, server_address, user):
                         break
             finally:
                 print("Here is all the data: ", all_data)
-                if (len(verify_online_contacts([all_data], user)) == 1):
-                    print("Client in contacts!")
-                else:
-                    print("HAX")
+
+                for contact in user.contacts:
+                    contactName = contact['name']
+                    contactEmail = contact['email']
+                    entered_hash = SHA256.new()
+                    entered_hash.update((contactEmail+contactName).encode("utf8"))
+                    hashEmail = entered_hash.hexdigest()
+                    print("Emails hashedddd: ", hashEmail.encode(), all_data)
+                    if all_data == hashEmail.encode():
+                        print("Client in contacts!")
+                        connection.close()
+                print("HAX")
                 # Clean up the connection
                 connection.close()
     except KeyboardInterrupt:
