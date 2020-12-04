@@ -1,6 +1,15 @@
 import socket
 
-host = '192.168.0.18'
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    mask = ip.split('.')
+    mask = mask[0] + '.' + mask[1] + '.' + mask[2] + '.255'
+    return (ip, mask)
+
+host = get_ip_address()[0]
 port = 4000
 
 # Create a TCP/IP socket
