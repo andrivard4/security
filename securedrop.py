@@ -488,12 +488,16 @@ def tcpServer(ideneity, server_address, user):
                     print('received "%s"' % data)
                     if data:
                         print('sending data back to the client')
-                        #connection.sendall(data)
+                        connection.sendall(data)
                     else:
                         print('no more data from', client_address)
                         break
             finally:
                 print("Here is all the data: ", all_data)
+                if (len(verify_online_contacts([all_data], user)) == 1):
+                    print("Client in contacts!")
+                else:
+                    print("HAX")
                 # Clean up the connection
                 connection.close()
     except KeyboardInterrupt:
