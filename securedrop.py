@@ -501,28 +501,23 @@ def tcpClient(request, response, server_address):
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print('connecting to %s port %s' % server_address)
-    while True:
-        try:
-            print(request[0])
-            sock.connect(request[0], 10000)
-            # Send data
-            message = 'Test.'
-            print('sending "%s"' % message)
-            sock.sendall(message.encode())
-            # Look for the response
-            amount_received = 0
-            amount_expected = len(message)
-            while amount_received < amount_expected:
-                data = sock.recv(32)
-                amount_received += len(data)
-                print('received "%s"' % data)
-        except:
-            print("Error with tcp sending.... trying again")
-            continue
-        finally:
-            print('closing socket')
-            sock.close()
-            break
+    sock.connect((request[0], 10000))
+    try:
+        print(request[0])
+        # Send data
+        message = 'Test.'
+        print('sending "%s"' % message)
+        sock.sendall(message.encode())
+        # Look for the response
+        amount_received = 0
+        amount_expected = len(message)
+        while amount_received < amount_expected:
+            data = sock.recv(32)
+            amount_received += len(data)
+            print('received "%s"' % data)
+    finally:
+        print('closing socket')
+        sock.close()
 
 
 def main():
