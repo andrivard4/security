@@ -402,7 +402,6 @@ def broadcast_sender(port, id, user):
 
 def contactHandler(requests, responses, user, server_address):
     active_requests = []
-    requests.append(1)
     # Create a tcp server thread for every online contact
     for request in requests:
         request_thread = threading.Thread(target=tcpClient, args=(request, responses, server_address,))
@@ -472,7 +471,7 @@ def verify_online_contacts(online, user):
 
 def tcpServer(ideneity, server_address):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(server_address)
+    sock.bind((server_address[0],10000))
     sock.listen(1)
     try:
         while True:
@@ -497,14 +496,15 @@ def tcpServer(ideneity, server_address):
         pass
 
 
-def tcpClient(requests, response, server_address):
+def tcpClient(request, response, server_address):
 
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print('connecting to %s port %s' % server_address)
     while True:
         try:
-            sock.connect(server_address)
+            print(request[0])
+            sock.connect(request[0], 10000)
             # Send data
             message = 'Test.'
             print('sending "%s"' % message)
