@@ -478,13 +478,13 @@ def tcpServer(ideneity, server_address, user):
         while True:
             print('waiting for a connection')
             connection, client_address = sock.accept()
-            all_data = ''
+            all_data = b""
             try:
                 print('connection from', client_address)
                 # Receive the data in small chunks and retransmit it
                 while True:
                     data = connection.recv(32)
-                    all_data = all_data + data
+                    all_data = b"".join([all_data, data])
                     print('received "%s"' % data)
                     if data:
                         print('sending data back to the client')
