@@ -404,7 +404,7 @@ def contactHandler(requests, responses, user, server_address):
     active_requests = []
     # Create a tcp server thread for every online contact
     for request in requests:
-        request_thread = threading.Thread(target=tcpClient, args=(request, responses, server_address,))
+        request_thread = threading.Thread(target=tcpClient, args=(request, responses, server_address, user.hashed_ideneity))
         active_requests.append(request_thread)
 
     for trd in active_requests:
@@ -469,7 +469,8 @@ def verify_online_contacts(online, user):
     return onlineContacts
 
 
-def tcpServer(ideneity, server_address):
+def tcpServer(ideneity, server_address, user):
+    print("Contacts, uwu", user.getContacts())
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_address[0],10000))
     sock.listen(1)
@@ -477,26 +478,29 @@ def tcpServer(ideneity, server_address):
         while True:
             print('waiting for a connection')
             connection, client_address = sock.accept()
+            all_data = ''
             try:
                 print('connection from', client_address)
                 # Receive the data in small chunks and retransmit it
                 while True:
-                    data = connection.recv(16)
+                    data = connection.recv(32)
+                    all_data = all_data + data
                     print('received "%s"' % data)
                     if data:
                         print('sending data back to the client')
-                        connection.sendall(data)
+                        #connection.sendall(data)
                     else:
                         print('no more data from', client_address)
                         break
             finally:
+                print("Here is all the data: ", all_data)
                 # Clean up the connection
                 connection.close()
     except KeyboardInterrupt:
         pass
 
 
-def tcpClient(request, response, server_address):
+def tcpClient(request, response, server_address, identityV):
 
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -505,12 +509,11 @@ def tcpClient(request, response, server_address):
     try:
         print(request[0])
         # Send data
-        message = 'Test.'
-        print('sending "%s"' % message)
-        sock.sendall(message.encode())
+        print('sending "%s"' % identityV)
+        sock.sendall(identityV.encode())
         # Look for the response
         amount_received = 0
-        amount_expected = len(message)
+        amount_expected = len(identityV)
         while amount_received < amount_expected:
             data = sock.recv(32)
             amount_received += len(data)
@@ -544,7 +547,7 @@ def main():
     user.export_keys()
 
     IOManager_worker = Process(target=IOManager, args=(online, user,address))
-    TPCServer_manager = Process(target=tcpServer, args=(user.hashed_ideneity,address))
+    TPCServer_manager = Process(target=tcpServer, args=(user.hashed_ideneity,address,user))
     broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online,))
     broadcast_sender_worker = Process(target=broadcast_sender, args=(1338, id,  user,))
     procs.append(broadcast_listener_worker)
