@@ -9,7 +9,7 @@ def get_ip_address():
     mask = mask[0] + '.' + mask[1] + '.' + mask[2] + '.255'
     return (ip, mask)
 
-host = get_ip_address()[0]
+host = '10.0.0.233'
 port = 4000
 
 # Create a TCP/IP socket
@@ -21,7 +21,7 @@ print('connecting to %s port %s' % server_address)
 sock.connect(server_address)
 try:
     # Send data
-    message = 'This is the message.  It will be repeated.'
+    message = 'Hello.'
     print('sending "%s"' % message)
     sock.sendall(message.encode())
     # Look for the response
