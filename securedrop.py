@@ -486,10 +486,7 @@ def tcpServer(ideneity, server_address, user):
                     data = connection.recv(32)
                     all_data = b"".join([all_data, data])
                     print('received "%s"' % data)
-                    if data:
-                        print('sending data back to the client')
-                        connection.sendall(data)
-                    else:
+                    if not data:
                         print('no more data from', client_address)
                         break
             finally:
@@ -504,8 +501,9 @@ def tcpServer(ideneity, server_address, user):
                     print("Emails hashedddd: ", hashEmail.encode(), all_data)
                     if all_data == hashEmail.encode():
                         print("Client in contacts!")
+                        connection.sendall(ideneity)
                         connection.close()
-                print("HAX")
+                        break
                 # Clean up the connection
                 connection.close()
     except KeyboardInterrupt:
