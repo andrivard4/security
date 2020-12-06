@@ -485,7 +485,7 @@ def tcpServer(ideneity, server_address, user):
                 print("getting packets")
                 packet = connection.recv(32)
                 print('received "%s"' % packet)
-                if packet == b'':
+                if not packet:
                     print('End of packets')
                     break
                 data.extend(packet)
@@ -521,6 +521,7 @@ def tcpClient(request, response, server_address, identityV):
         # Send data
         print('sending "%s"' % identityV)
         sock.sendall(identityV.encode())
+        sock.sendall('EOF'.encode())
         print('sent!')
         # Look for the response
         while True:
