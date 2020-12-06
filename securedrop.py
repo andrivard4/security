@@ -528,8 +528,11 @@ def tcpClient(request, response, server_address, identityV):
         while True:
             packet = sock.recv(32)
             print('received "%s"' % packet)
-            if not packet and response != b"":
-                break
+            if not packet:
+                if len(response) != 0:
+                    break
+                else:
+                    continue
             response.extend(packet)
     finally:
         print('closing socket: ', response)
