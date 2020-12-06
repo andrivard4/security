@@ -478,32 +478,29 @@ def tcpServer(ideneity, server_address, user):
         while True:
             print('waiting for a connection')
             connection, client_address = sock.accept()
-            all_data = b""
-            try:
-                print('connection from', client_address)
-                # Receive the data in small chunks and retransmit it
-                while True:
-                    data = connection.recv(32)
-                    all_data = b"".join([all_data, data])
-                    print('received "%s"' % data)
-                    if not data:
-                        print('no more data from', client_address)
-                        break
-            finally:
-                print("Here is all the data: ", all_data)
+            data = bytearray()
+            print('connection from', client_address)
+            # Receive the data in small chunks and retransmit it
+            while True:
+                packet = connection.recv(32)
+                print('received "%s"' % packet)
+                if not packet:
+                    break
+                data.extend(packet)
+            print("Here is all the data: ", data)
 
-                for contact in user.contacts:
-                    contactName = contact['name']
-                    contactEmail = contact['email']
-                    entered_hash = SHA256.new()
-                    entered_hash.update((contactEmail+contactName).encode("utf8"))
-                    hashEmail = entered_hash.hexdigest()
-                    print("Emails hashedddd: ", hashEmail.encode(), all_data)
-                    if all_data == hashEmail.encode():
-                        print("Client in contacts!")
-                        connection.sendall(ideneity)
-                        connection.close()
-                        break
+            for contact in user.contacts:
+                contactName = contact['name']
+                contactEmail = contact['email']
+                entered_hash = SHA256.new()
+                entered_hash.update((contactEmail+contactName).encode("utf8"))
+                hashEmail = entered_hash.hexdigest()
+                print("Emails hashedddd: ", hashEmail.encode(), data)
+                if data == hashEmail.encode():
+                    print("Client in contacts!")
+                    connection.sendall(ideneity)
+                    connection.close()
+                    break
                 # Clean up the connection
                 connection.close()
     except KeyboardInterrupt:
@@ -521,13 +518,6 @@ def tcpClient(request, response, server_address, identityV):
         # Send data
         print('sending "%s"' % identityV)
         sock.sendall(identityV.encode())
-        # Look for the response
-        amount_received = 0
-        amount_expected = len(identityV)
-        while amount_received < amount_expected:
-            data = sock.recv(32)
-            amount_received += len(data)
-            print('received "%s"' % data)
     finally:
         print('closing socket')
         sock.close()
