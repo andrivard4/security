@@ -440,8 +440,7 @@ def IOManager(online, user, server_address):
             elif(task == 'exit'):
                 raise KeyboardInterrupt()
             elif(task == 'list'):
-                print(online)
-                print(listContacts(online, user, server_address))
+                listContacts(online, user, server_address)
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
