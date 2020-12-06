@@ -489,19 +489,19 @@ def tcpServer(ideneity, server_address, user):
                     break
                 data.extend(packet)
             print("Here is all the data: ", data)
-
-            for contact in user.contacts:
-                contactName = contact['name']
-                contactEmail = contact['email']
-                entered_hash = SHA256.new()
-                entered_hash.update((contactEmail+contactName).encode("utf8"))
-                hashEmail = entered_hash.hexdigest()
-                if data == hashEmail.encode():
-                    print("Client in contacts!")
-                    print(user.hashed_ideneity.encode())
-                    connection.sendall(user.hashed_ideneity.encode())
-                    connection.close()
-                    break
+            try:
+                for contact in user.contacts:
+                    contactName = contact['name']
+                    contactEmail = contact['email']
+                    entered_hash = SHA256.new()
+                    entered_hash.update((contactEmail+contactName).encode("utf8"))
+                    hashEmail = entered_hash.hexdigest()
+                    if data == hashEmail.encode():
+                        print("Client in contacts!")
+                        print(user.hashed_ideneity.encode())
+                        connection.sendall(user.hashed_ideneity.encode())
+                        break
+            finally:
                 # Clean up the connection
                 connection.close()
     except KeyboardInterrupt:
