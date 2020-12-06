@@ -505,7 +505,6 @@ def tcpServer(ideneity, server_address, user):
                     if all_data == hashEmail.encode():
                         print("Client in contacts!")
                         connection.close()
-                        return
                 print("HAX")
                 # Clean up the connection
                 connection.close()
