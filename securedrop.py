@@ -513,13 +513,22 @@ def tcpClient(request, response, server_address, identityV):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print('connecting to %s port %s' % server_address)
     sock.connect((request[0], 10000))
+    response = bytearray()
     try:
         print(request[0])
         # Send data
         print('sending "%s"' % identityV)
         sock.sendall(identityV.encode())
+        # Look for the response
+        # Receive the data in small chunks and retransmit it
+        while True:
+            packet = sock.recv(32)
+            print('received "%s"' % packet)
+            if not packet:
+                break
+            response.extend(packet)
     finally:
-        print('closing socket')
+        print('closing socket: ', response)
         sock.close()
 
 
