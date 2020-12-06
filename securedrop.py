@@ -497,7 +497,6 @@ def tcpServer(ideneity, server_address, user):
                 entered_hash = SHA256.new()
                 entered_hash.update((contactEmail+contactName).encode("utf8"))
                 hashEmail = entered_hash.hexdigest()
-                print("Emails hashedddd: ", hashEmail.encode(), data)
                 if data == hashEmail.encode():
                     print("Client in contacts!")
                     print(user.hashed_ideneity.encode())
@@ -525,14 +524,9 @@ def tcpClient(request, response, server_address, identityV):
         sock.sendall('EOF'.encode())
         print('sent!')
         # Look for the response
-        while True:
+        while len(response) < len(identityV):
             packet = sock.recv(32)
             print('received "%s"' % packet)
-            if not packet:
-                if len(response) != 0:
-                    break
-                else:
-                    continue
             response.extend(packet)
     finally:
         print('closing socket: ', response)
