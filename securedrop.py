@@ -472,7 +472,7 @@ def verify_online_contacts(online, user):
 def tcpServer(ideneity, server_address, user):
     print("Contacts, uwu", user.getContacts())
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((server_address[0],10000))
+    sock.bind((server_address[0], 10000))
     sock.listen(1)
     try:
         while True:
@@ -482,9 +482,11 @@ def tcpServer(ideneity, server_address, user):
             print('connection from', client_address)
             # Receive the data in small chunks and retransmit it
             while True:
+                print("getting packets")
                 packet = connection.recv(32)
                 print('received "%s"' % packet)
-                if not packet:
+                if packet == b'':
+                    print('End of packets')
                     break
                 data.extend(packet)
             print("Here is all the data: ", data)
@@ -519,8 +521,8 @@ def tcpClient(request, response, server_address, identityV):
         # Send data
         print('sending "%s"' % identityV)
         sock.sendall(identityV.encode())
+        print('sent!')
         # Look for the response
-        # Receive the data in small chunks and retransmit it
         while True:
             packet = sock.recv(32)
             print('received "%s"' % packet)
