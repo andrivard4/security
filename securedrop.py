@@ -485,7 +485,7 @@ def tcpServer(ideneity, server_address, user):
                 print("getting packets")
                 packet = connection.recv(32)
                 print('received "%s"' % packet)
-                if not packet:
+                if packet.decode() == 'EOF':
                     print('End of packets')
                     break
                 data.extend(packet)
@@ -500,7 +500,8 @@ def tcpServer(ideneity, server_address, user):
                 print("Emails hashedddd: ", hashEmail.encode(), data)
                 if data == hashEmail.encode():
                     print("Client in contacts!")
-                    connection.sendall(ideneity)
+                    print(user.hashed_ideneity.encode())
+                    connection.sendall(user.hashed_ideneity.encode())
                     connection.close()
                     break
                 # Clean up the connection
@@ -527,7 +528,7 @@ def tcpClient(request, response, server_address, identityV):
         while True:
             packet = sock.recv(32)
             print('received "%s"' % packet)
-            if not packet:
+            if not packet and response != b"":
                 break
             response.extend(packet)
     finally:
