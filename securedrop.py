@@ -12,7 +12,7 @@ import socket
 import time
 import threading
 import queue
-from multiprocessing import Process, Manager
+from multiprocessing import Process, Manager, Queue
 
 
 class User:
@@ -94,12 +94,19 @@ class User:
         JSON_data = json.loads(cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8'))
         self.contacts = JSON_data['contacts']
 
+    def set_contact_key(self, name, email, key):
+        for contact in self.contacts:
+            if (contact['name'] == name and contact['email'] == email):
+                contact['public_key'] = key
+        self.import_keys()
+        self.saveUserData()
+        self.export_keys()
+
 
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     address = s.getsockname()
-    print(address)
     s.close()
     return address
 
@@ -346,12 +353,16 @@ def login_user():
 
 
 # Add contact functions
-def addContact(user):
+def addContact(user_data):
     inputs = getContactInput()
     while not validateContactInput(inputs):
         inputs = getContactInput()
+    user = user_data.get()
     addContactsToFile(user, inputs)
+    user.import_keys()
     user.saveUserData()
+    user.export_keys()
+    user_data.put(user)
 
 
 # User input functions
@@ -387,7 +398,9 @@ def broadcast_listener(s, id, online):
         pass
 
 
-def broadcast_sender(port, id, user):
+def broadcast_sender(port, id, user_data):
+    user = user_data.get()
+    user_data.put(user)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
@@ -414,39 +427,61 @@ def contactHandler(requests, responses, user):
         trd.join()
 
 
-def listContacts(online, user):
+def listContacts(online, user_data):
+    user = user_data.get()
+    user_data.put(user)
     requests = list()
     responses = queue.Queue()
     my_online_contacts = verify_online_contacts(online, user)
 
     contactHandler(my_online_contacts, responses, user)
 
+    parsed_responses = []
     while(responses.empty() is False):
-        response = responses.get() #Check without removeing first!
+        response = responses.get() # Check without removeing first!
         if response['type'] == 'contact':
-            print(response['data'])
+            parsed_response = {'name': response['data'][0], 'email': response['data'][1], 'address': response['data'][2], 'public_key': response['data'][3]}
+            parsed_responses.append(parsed_response)
+    return parsed_responses
 
 
-
-
-def IOManager(online, user):
-    user.import_keys()
+def IOManager(online, user_data):
     sys.stdin.close()
     sys.stdin = open('/dev/stdin')
     try:
         while(1):
             task = input('Securedrop > ')
             if (task == 'add'):
-                addContact(user)
+                addContact(user_data)
             elif(task == 'exit'):
                 raise KeyboardInterrupt()
             elif(task == 'list'):
-                listContacts(online, user)
+                print(listContacts(online, user_data))
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
-                #tcpFileClient(request, user)
-                print(online)
+                email = 'Andrivard4@icloud.com'
+                online_contacts = listContacts(online, user_data)
+                found = False
+                for contact in online_contacts:
+                    if contact['email'] == email:
+                        found = contact
+                        break
+                if not found:
+                    print("User is not online!")
+                    continue
+                tcpFileClient(contact, user_data)
+            elif(task == 'reply'):
+                for line in sys.stdin:
+                    print("input:", line)
+                    if line[:-1] == 'stop':
+                        sys.stdin.flush()
+                        break
+            elif(task == 'key'):
+                print("This is your public key:")
+                user = user_data.get()
+                user_data.put(user)
+                print(user.public_key.publickey().export_key().decode())
             else:
                 print("Unknown command, type help for help.")
     except KeyboardInterrupt:
@@ -462,18 +497,19 @@ def verify_online_contacts(online, user):
         for contact in user.contacts:
             contactName = contact['name']
             contactEmail = contact['email']
+            public_key = contact['public_key']
             entered_hash = SHA256.new()
             entered_hash.update((contactEmail+contactName).encode("utf8"))
             hashEmail = entered_hash.hexdigest()
             if clientEmail == hashEmail.encode():
-                onlineContacts.append([contactName, contactEmail, client[1]])
+                onlineContacts.append([contactName, contactEmail, client[1], public_key])
     return onlineContacts
 
 def sendMessage(data, connection):
     data = (json.dumps(data)+'EOF').encode()
     connection.sendall(data)
 
-def tcpServer(server_address, user):
+def tcpServer(server_address, user_data):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_address[0], 10000))
     sock.listen(1)
@@ -491,22 +527,64 @@ def tcpServer(server_address, user):
                 data.extend(packet)
             data = json.loads(data.decode())
             try:
-                if (data['type'] == 'contact'):
+                # If there is an identity field, parse it
+                if (data['identity']):
                     found = False
+                    user = user_data.get()
+                    user_data.put(user)
                     for contact in user.contacts:
                         contactName = contact['name']
                         contactEmail = contact['email']
                         entered_hash = SHA256.new()
                         entered_hash.update((contactEmail+contactName).encode("utf8"))
                         hashEmail = entered_hash.hexdigest()
-                        if data['data'] == hashEmail:
+                        if data['identity'] == hashEmail:
                             found = True
-                            response = {'type': 'contact', 'data': user.hashed_ideneity}
-                            sendMessage(response, connection)
+                            data['identity'] = contact
                             break
                     if not found:
                         response = {'type': 'error', 'status': 'CNF'}
                         sendMessage(response, connection)
+                if (data['type'] == 'contact'):
+                    # If we got this far, we found the identity of the user
+                    # Send them back our identity
+                    response = {'type': 'contact', 'data': user.hashed_ideneity}
+                    sendMessage(response, connection)
+                elif data['type'] == 'test':
+                    # This is a simple test request, it sends messages to eachother
+                    print('Test request recieved with data:', data['data'])
+                    sys.stdin.close()
+                    sys.stdin = open('/dev/stdin')
+                    print("You have a pending request on another process, type 'reply' to be able to respond to it.")
+                    message = input('What should you send back?')
+                    sys.stdin.close()
+                    print("Request complete, please type 'stop' to switch back to main process.")
+                    sendMessage({'type': 'test', 'data': message}, connection)
+                elif data['type'] == 'key':
+                    # Handles a request when someone sends you a key. If identity isnt set, reject
+                    if not data['identity']:
+                        response = {'type': 'error', 'data': 'Verified identity required for this action.'}
+                        sendMessage(response, connection)
+                    else:
+                        print('User', data['identity'], 'has sent you a key, please verify this is correct over a secure connection:')
+                        print(data['data'])
+                        print("If this is correct, accept connection to send your key and save their, otherwise refuese connection")
+                        sys.stdin.close()
+                        sys.stdin = open('/dev/stdin')
+                        print("You have a pending request on another process, type 'reply' to be able to respond to it.")
+                        message = input('Do you want to save the above key? [Y/n]')
+                        sys.stdin.close()
+                        if message == 'n':
+                            sendMessage({'type': 'error', 'data': 'key rejected, communication terminated.'}, connection)
+                            print('request denied!')
+                        elif message == 'Y':
+                            contact = data['identity']
+                            contact['public_key'] = data['data']
+                            user = user_data.get()
+                            user.set_contact_key(contact['name'], contact['email'], data['data'])
+                            user_data.put(user)
+                            sendMessage({'type': 'success', 'data': 'key accepted and saved!'}, connection)
+                        print("Request complete, please type 'stop' to switch back to main process.")
                 else:
                     response = {'type': 'error', 'data': 'unknown type sent.'}
                     sendMessage(response, connection)
@@ -525,7 +603,7 @@ def tcpListClient(request, responses, identityV):
     sock.connect((request[2][0], 10000))
     response = bytearray()
     try:
-        data = {'type': 'contact', 'data': identityV}
+        data = {'type': 'contact', 'identity': identityV}
         sendMessage(data, sock)
         # Look for the response
         while True:
@@ -546,18 +624,18 @@ def tcpListClient(request, responses, identityV):
             print("Error understanding response")
         sock.close()
 
-def tcpFileClient(request, user):
-
+def tcpFileClient(request, user_data):
+    user = user_data.get()
+    user_data.put(user)
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((request['address'][0], 10000))
     response = bytearray()
     try:
         if not request['public_key']:
-            print("Need to exchange keys somehow...")
-            #data = {'type': 'key', 'data': user.public_key} #This totally needs work...
-            data = {'type': 'test', 'data': 'helloooooooooo'}
+            data = {'type': 'key', 'data': user.public_key.decode(), 'identity': user.hashed_ideneity}
             sendMessage(data, sock)
+            print("Waiting for users response...")
         else:
             # This is where we encrypt and send the file over
             print("transfering file...")
@@ -571,8 +649,12 @@ def tcpFileClient(request, user):
             response.extend(packet)
     finally:
         response = json.loads(response.decode())
-        if (response['type'] == 'contact'):
-            print("BONELESS")
+        if (response['type'] == 'error'):
+            print("Error:", response['data'])
+        elif response['type'] == 'success':
+            print(response['data'])
+        elif response['type'] == 'test':
+            print('Recieved test back with data:', response['data'])
         else:
             print("Error understanding response")
         sock.close()
@@ -592,6 +674,7 @@ def main():
 
     online = Manager().list()
     procs = list()
+    user_data = Queue()
     id = get_random_bytes(16)
     # listen for other broadcasts on network
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -600,11 +683,12 @@ def main():
     s.bind(('', 1338))
 
     user.export_keys()
+    user_data.put(user)
 
-    IOManager_worker = Process(target=IOManager, args=(online, user))
-    TPCServer_manager = Process(target=tcpServer, args=(address,user))
+    IOManager_worker = Process(target=IOManager, args=(online, user_data,))
+    TPCServer_manager = Process(target=tcpServer, args=(address, user_data,))
     broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online,))
-    broadcast_sender_worker = Process(target=broadcast_sender, args=(1338, id,  user,))
+    broadcast_sender_worker = Process(target=broadcast_sender, args=(1338, id,  user_data,))
     procs.append(broadcast_listener_worker)
     procs.append(broadcast_sender_worker)
     procs.append(IOManager_worker)
