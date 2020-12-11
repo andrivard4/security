@@ -111,6 +111,18 @@ def get_ip_address():
     return address
 
 
+def ideneityToContact(identity, contacts):
+    for contact in contacts:
+        contactName = contact['name']
+        contactEmail = contact['email']
+        entered_hash = SHA256.new()
+        entered_hash.update((contactEmail+contactName).encode("utf8"))
+        hashEmail = entered_hash.hexdigest()
+        if identity == hashEmail:
+            return contact
+    return False
+
+
 # Pooja
 def getRegistrationInput():
     # Get user input from command line
@@ -460,7 +472,7 @@ def IOManager(online, user_data):
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
-                email = 'Andrivard4@icloud.com'
+                email = 'Andrivard4@gmail.com'
                 online_contacts = listContacts(online, user_data)
                 found = False
                 for contact in online_contacts:
@@ -473,7 +485,6 @@ def IOManager(online, user_data):
                 tcpFileClient(contact, user_data)
             elif(task == 'reply'):
                 for line in sys.stdin:
-                    print("input:", line)
                     if line[:-1] == 'stop':
                         sys.stdin.flush()
                         break
@@ -481,7 +492,7 @@ def IOManager(online, user_data):
                 print("This is your public key:")
                 user = user_data.get()
                 user_data.put(user)
-                print(user.public_key.publickey().export_key().decode())
+                print(user.public_key.decode())
             else:
                 print("Unknown command, type help for help.")
     except KeyboardInterrupt:
@@ -528,28 +539,22 @@ def tcpServer(server_address, user_data):
             data = json.loads(data.decode())
             try:
                 # If there is an identity field, parse it
-                if (data['identity']):
-                    found = False
+                if 'identity' in data:
                     user = user_data.get()
                     user_data.put(user)
-                    for contact in user.contacts:
-                        contactName = contact['name']
-                        contactEmail = contact['email']
-                        entered_hash = SHA256.new()
-                        entered_hash.update((contactEmail+contactName).encode("utf8"))
-                        hashEmail = entered_hash.hexdigest()
-                        if data['identity'] == hashEmail:
-                            found = True
-                            data['identity'] = contact
-                            break
-                    if not found:
-                        response = {'type': 'error', 'status': 'CNF'}
-                        sendMessage(response, connection)
+                    contact = ideneityToContact(data['identity'], user.contacts)
+                    if contact:
+                        data['identity'] = contact
+                    else:
+                        data['identity'] = False
                 if (data['type'] == 'contact'):
-                    # If we got this far, we found the identity of the user
                     # Send them back our identity
-                    response = {'type': 'contact', 'data': user.hashed_ideneity}
-                    sendMessage(response, connection)
+                    if not data['identity']:
+                        response = {'type': 'error', 'data': 'Verified identity required for this action.'}
+                        sendMessage(response, connection)
+                    else:
+                        response = {'type': 'contact', 'data': user.hashed_ideneity}
+                        sendMessage(response, connection)
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
                     print('Test request recieved with data:', data['data'])
@@ -584,6 +589,23 @@ def tcpServer(server_address, user_data):
                             user.set_contact_key(contact['name'], contact['email'], data['data'])
                             user_data.put(user)
                             sendMessage({'type': 'success', 'data': 'key accepted and saved!'}, connection)
+                        print("Request complete, please type 'stop' to switch back to main process.")
+                elif data['type'] == 'key-request':
+                    # Handles a request when someone sends you a key. If identity isnt set, reject
+                    if not data['identity']:
+                        response = {'type': 'error', 'data': 'Verified identity required for this action.'}
+                        sendMessage(response, connection)
+                    else:
+                        print('User', data['identity'], 'has requested your public key, please verify that this request is expected:')
+                        sys.stdin.close()
+                        sys.stdin = open('/dev/stdin')
+                        message = input('Do you want to send your public key? [Y/n]')
+                        sys.stdin.close()
+                        if message == 'n':
+                            sendMessage({'type': 'error', 'data': 'request rejected, communication terminated.'}, connection)
+                            print('request denied!')
+                        elif message == 'Y':
+                            sendMessage({'type': 'key', 'identity': user.hashed_ideneity, 'data': user.public_key.decode()}, connection)
                         print("Request complete, please type 'stop' to switch back to main process.")
                 else:
                     response = {'type': 'error', 'data': 'unknown type sent.'}
@@ -627,36 +649,63 @@ def tcpListClient(request, responses, identityV):
 def tcpFileClient(request, user_data):
     user = user_data.get()
     user_data.put(user)
-    # Create a TCP/IP socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((request['address'][0], 10000))
-    response = bytearray()
-    try:
-        if not request['public_key']:
-            data = {'type': 'key', 'data': user.public_key.decode(), 'identity': user.hashed_ideneity}
-            sendMessage(data, sock)
-            print("Waiting for users response...")
-        else:
-            # This is where we encrypt and send the file over
-            print("transfering file...")
+    while True:
+        # Create a TCP/IP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((request['address'][0], 10000))
+        response = bytearray()
+        try:
+            if not request['public_key']: # I dont think we want to send our key unprovoked...
+                # data = {'type': 'key', 'data': user.public_key.decode(), 'identity': user.hashed_ideneity}
+                data = {'type': 'key-request', 'identity': user.hashed_ideneity}
+                sendMessage(data, sock)
+                print("Waiting for users response...")
+            else:
+                # This is where we encrypt and send the file over
+                data = {'type': 'test', 'data': 'This is a file. here it is, enjoy it...'}
+                sendMessage(data, sock)
+                print("transfering file...")
 
-        # Look for the response
-        while True:
-            packet = sock.recv(64)
-            if packet[-3:].decode() == 'EOF':
-                response.extend(packet[:-3])
+            # Look for the response
+            while True:
+                packet = sock.recv(64)
+                if packet[-3:].decode() == 'EOF':
+                    response.extend(packet[:-3])
+                    break
+                response.extend(packet)
+        finally:
+            response = json.loads(response.decode())
+            if (response['type'] == 'error'):
+                print("Error:", response['data'])
                 break
-            response.extend(packet)
-    finally:
-        response = json.loads(response.decode())
-        if (response['type'] == 'error'):
-            print("Error:", response['data'])
-        elif response['type'] == 'success':
-            print(response['data'])
-        elif response['type'] == 'test':
-            print('Recieved test back with data:', response['data'])
-        else:
-            print("Error understanding response")
+            elif response['type'] == 'success':
+                print(response['data'])
+                break
+            elif response['type'] == 'key':
+                contact = ideneityToContact(response['identity'], user.contacts)
+                if not contact:
+                    print("Got a key from an unknown contact... ignoring")
+                else:
+                    print('User', contact, 'has sent you a key, please verify this is correct over a secure connection:')
+                    print(response['data'])
+                    print("If this is correct, accept connection to save their key, otherwise refuese request")
+                    message = input('Do you want to save the above key? [Y/n]')
+                    if message == 'n': # Maybe do something else?
+                        print('request denied!')
+                        break
+                    elif message == 'Y':
+                        contact['public_key'] = response['data']
+                        user = user_data.get()
+                        user.set_contact_key(contact['name'], contact['email'], response['data'])
+                        user_data.put(user)
+                        request['public_key']  = response['data']
+                        print('Public key saved successfully!')
+            elif response['type'] == 'test':
+                print('Recieved test back with data:', response['data'])
+                break
+            else:
+                print("Error understanding response")
+                break
         sock.close()
 
 
