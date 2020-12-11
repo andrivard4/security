@@ -292,7 +292,7 @@ def validateContactInput(inputs):
 def addContactsToFile(user, inputs):
     input_name, input_email = inputs
     for email in user.getContacts():
-        if input_email == email:
+        if input_email == email['email']:
             print("This email already exists as a contact.\n")
             return
     user.addContact(input_name, input_email)
