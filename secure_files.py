@@ -33,7 +33,7 @@ def getFileInput(inputFileName):
     cipher_aes = AES.new(session_key, AES.MODE_EAX)
     [inputSendData.append(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
 
-    # Testing purposes
+    # Used for testing purposes
     # temp = decryptData(inputSendData)
     return inputSendData
 
@@ -55,5 +55,6 @@ def decryptData(data):
 
     return fileData
 
-
-temp = getFileInput("temp.txt")
+# main
+# Used for testing purposes
+# temp = getFileInput("temp.txt")

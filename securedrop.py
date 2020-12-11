@@ -15,8 +15,9 @@ import queue
 from multiprocessing import Process, Manager
 
 
+# Functions and values associated with the user
 class User:
-
+    # Values associated with the user
     def __init__(self, name, email, public, private, password, salt):
         self.name = name
         self.email = email
@@ -29,14 +30,15 @@ class User:
         entered_hash.update((self.email+self.name).encode("utf8"))
         self.hashed_ideneity = entered_hash.hexdigest()
 
+    # Get contacts of the user
     def getContacts(self):
         return self.contacts
 
+    # Add a contact to the user
     def addContact(self, name, email):
         self.contacts.append({'name': name, 'email': email, 'public_key': ''})
 
 
-    # Cassie, Pooja
     # Encrypt the contact info with the public key then write it to the contact file
     def saveUserData(self):
         if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
@@ -54,6 +56,8 @@ class User:
         [file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
         file_out.close()
 
+    # Prints properites of user
+    # Used for testing purposes
     def toPrint(self):
         print("name: ", self.name)
         print("email: ", self.email)
@@ -63,19 +67,20 @@ class User:
         print("hashed_password: ", self.hashed_password)
         print("salt: ", self.salt)
 
+    # Define Public and Private export keys of the user
     def export_keys(self):
         if self.public_key is not None:
             self.public_key = self.public_key.publickey().export_key()
         if self.private_key is not None:
             self.private_key = self.private_key.export_key()
 
+    # Define Public and Private export keys of the user
     def import_keys(self):
         if self.public_key is not None:
             self.public_key = RSA.import_key(self.public_key)
         if self.private_key is not None:
             self.private_key = RSA.import_key(self.private_key)
 
-    # Cassie, Pooja
     # Decrypts ~/.securedrop/contacts.log should it exist
     def loadUserData(self):
         # Get contact file and see if it exists
@@ -94,7 +99,7 @@ class User:
         JSON_data = json.loads(cipher_aes.decrypt_and_verify(ciphertext, tag).decode('utf-8'))
         self.contacts = JSON_data['contacts']
 
-
+# Uses sockets to get ip address
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
@@ -104,10 +109,9 @@ def get_ip_address():
     return address
 
 
-# Pooja
+# Get user input from command line
+# Save it in the above variables
 def getRegistrationInput():
-    # Get user input from command line
-    # Save it in the above variables
     username = input('Enter Full Name: ')
     email = input('Enter Email: ')
     password = getpass.getpass(prompt='Enter Password: ')
@@ -115,7 +119,6 @@ def getRegistrationInput():
     return {'name': username, 'email': email, 'password': password, 'confirm': confirm}
 
 
-# Cassie
 # Validate Input from user
 def validateRegistrationInput(input):
     email = input['email']
@@ -180,7 +183,6 @@ def validateRegistrationInput(input):
             return False
 
 
-# Andrew
 # Generate Public key and Private key
 def keyGen(password, salt):
     key = RSA.generate(2048)
@@ -198,7 +200,6 @@ def keyGen(password, salt):
     return (private_key, public_key)
 
 
-# Andrew
 # Encrypt user password
 def encryptUserData(input):
     # Encrypts the user data
@@ -213,7 +214,6 @@ def encryptUserData(input):
     return User(input['name'], input['email'], public_key, private_key, encrypted_password, salt)
 
 
-# Andrew
 # Load ~/.securedrop/user.log and put in email, name, encrypted password, and public key
 def loadUserFile(user):
     email = user.email
@@ -223,19 +223,16 @@ def loadUserFile(user):
     public_key = user.public_key
     userFile = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
     userFile.write(
-        json.dumps(
-            {
-                'email': email,
-                'name': name,
-                'credentials': salt.hex() + ":" + pswd,
-                'pub': public_key.export_key().hex()
-            }
-        )
+        json.dumps({
+            'email': email,
+            'name': name,
+            'credentials': salt.hex() + ":" + pswd,
+            'pub': public_key.export_key().hex()
+        })
     )
     userFile.close()
 
 
-# Andrew
 # Checks if account is created
 def account_check():
     if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log"):
@@ -244,7 +241,6 @@ def account_check():
     return 0
 
 
-# Cassie, Pooja
 # Get contact name and email
 def getContactInput():
     name = input('Enter Contact Name:  ')
@@ -253,7 +249,6 @@ def getContactInput():
 
 
 # Validate email is an email address
-# Cassie, Pooja
 def validateContactInput(inputs):
     name, email = inputs
 
@@ -268,7 +263,6 @@ def validateContactInput(inputs):
     return False
 
 
-# Cassie, Pooja
 # Add a contact to the JSON data
 def addContactsToFile(user, inputs):
     input_name, input_email = inputs
@@ -279,7 +273,6 @@ def addContactsToFile(user, inputs):
     user.addContact(input_name, input_email)
 
 
-# Andrew
 # Gets information about user account
 def getAccountInfo():
     account_file = open(os.path.expanduser("~") + "/.securedrop/user.log", "r")
@@ -294,16 +287,18 @@ def getAccountInfo():
     return User(name, email, public_key, None, hashed_password, salt)
 
 
-# Andrew
 # User login
 def autho_user(user):
+    # Get user input
     print("Log in for account ", user.email)
     pswd_input = getpass.getpass(prompt='Enter Password: ')
 
+    # Hash the input password
     pswd_input_hasher = SHA256.new()
     pswd_input_hasher.update(bytes.fromhex(user.salt) + pswd_input.encode("utf8"))
     pswd_input_hashed = pswd_input_hasher.hexdigest()
 
+    # Verify user with hashed password
     if (user.hashed_password == pswd_input_hashed):
         print("Login Success!")
         key_file = open(os.path.expanduser("~") + "/.securedrop/private.pem","rb")
@@ -362,8 +357,8 @@ def help():
     print("Type 'exit' to exit SecureDrop")
 
 
+# Braodcast Listener for online communication
 def broadcast_listener(s, id, online):
-
     ignore = 0
     try:
         while True:
@@ -387,6 +382,7 @@ def broadcast_listener(s, id, online):
         pass
 
 
+# Braodcast Sender for online communication
 def broadcast_sender(port, id, user):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -400,6 +396,7 @@ def broadcast_sender(port, id, user):
         pass
 
 
+# Handle online contacts
 def contactHandler(requests, responses, user):
     active_requests = []
     # Create a tcp server thread for every online contact
@@ -414,6 +411,7 @@ def contactHandler(requests, responses, user):
         trd.join()
 
 
+# List the user's contacts that are online
 def listContacts(online, user):
     requests = list()
     responses = queue.Queue()
@@ -427,8 +425,7 @@ def listContacts(online, user):
             print(response['data'])
 
 
-
-
+# IO manager to regulate user commands
 def IOManager(online, user):
     user.import_keys()
     sys.stdin.close()
@@ -469,10 +466,13 @@ def verify_online_contacts(online, user):
                 onlineContacts.append([contactName, contactEmail, client[1]])
     return onlineContacts
 
+
+# Send message to all connections
 def sendMessage(data, connection):
     data = (json.dumps(data)+'EOF').encode()
     connection.sendall(data)
 
+# Setup tcpServer
 def tcpServer(server_address, user):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_address[0], 10000))
@@ -517,9 +517,9 @@ def tcpServer(server_address, user):
         pass
 
 
+# Get response from sent requests
+# See if the responder is within the user's contacts
 def tcpListClient(request, responses, identityV):
-
-
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((request[2][0], 10000))
@@ -535,6 +535,7 @@ def tcpListClient(request, responses, identityV):
                 break
             response.extend(packet)
     finally:
+        # Check if the responder is within the user's contacts
         response = json.loads(response.decode())
         if (response['type'] == 'contact'):
             response['data'] = request
@@ -546,8 +547,9 @@ def tcpListClient(request, responses, identityV):
             print("Error understanding response")
         sock.close()
 
-def tcpFileClient(request, user):
 
+# tcp File Transfer with contacts
+def tcpFileClient(request, user):
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((request['address'][0], 10000))
@@ -578,9 +580,11 @@ def tcpFileClient(request, user):
         sock.close()
 
 
+
+# Main Functionality
 def main():
     user = None
-    # Main functionality
+    # Check if user needs to login or register
     if account_check():
         user = login_user()
         print("Welcome back ", user.name)
@@ -601,6 +605,7 @@ def main():
 
     user.export_keys()
 
+    # Start background processes
     IOManager_worker = Process(target=IOManager, args=(online, user))
     TPCServer_manager = Process(target=tcpServer, args=(address,user))
     broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online,))
