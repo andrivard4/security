@@ -472,7 +472,7 @@ def IOManager(online, user_data):
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
-                email = 'Andrivard4@gmail.com'
+                email = 'Andrivard4@icloud.com'
                 online_contacts = listContacts(online, user_data)
                 found = False
                 for contact in online_contacts:
@@ -493,10 +493,15 @@ def IOManager(online, user_data):
                 user = user_data.get()
                 user_data.put(user)
                 print(user.public_key.decode())
+                print(user.getContacts())
             else:
                 print("Unknown command, type help for help.")
     except KeyboardInterrupt:
         pass
+
+
+def contactString(data):
+    return data['name'] + " <" + data['email'] + ">"
 
 
 # Verify people in contacts who are online, given array of online users
@@ -571,7 +576,7 @@ def tcpServer(server_address, user_data):
                         response = {'type': 'error', 'data': 'Verified identity required for this action.'}
                         sendMessage(response, connection)
                     else:
-                        print('User', data['identity'], 'has sent you a key, please verify this is correct over a secure connection:')
+                        print('User', contactString(data['identity']), 'has sent you a key, please verify this is correct over a secure connection:')
                         print(data['data'])
                         print("If this is correct, accept connection to send your key and save their, otherwise refuese connection")
                         sys.stdin.close()
@@ -596,7 +601,7 @@ def tcpServer(server_address, user_data):
                         response = {'type': 'error', 'data': 'Verified identity required for this action.'}
                         sendMessage(response, connection)
                     else:
-                        print('User', data['identity'], 'has requested your public key, please verify that this request is expected:')
+                        print('User', contactString(data['identity']), 'has requested your public key, please verify that this request is expected:')
                         sys.stdin.close()
                         sys.stdin = open('/dev/stdin')
                         message = input('Do you want to send your public key? [Y/n]')
@@ -640,8 +645,7 @@ def tcpListClient(request, responses, identityV):
             response['data'] = request
             responses.put(response)
         elif (response['type'] == 'error'):
-            if (response['status'] != 'CNF'):
-                print("Error with response: ", response['status'], response['data'])
+            print("Error with response: ", response['data'])
         else:
             print("Error understanding response")
         sock.close()
@@ -686,7 +690,7 @@ def tcpFileClient(request, user_data):
                 if not contact:
                     print("Got a key from an unknown contact... ignoring")
                 else:
-                    print('User', contact, 'has sent you a key, please verify this is correct over a secure connection:')
+                    print('User', contactString(contact), 'has sent you a key, please verify this is correct over a secure connection:')
                     print(response['data'])
                     print("If this is correct, accept connection to save their key, otherwise refuese request")
                     message = input('Do you want to save the above key? [Y/n]')
