@@ -12,7 +12,7 @@ import sys
 import socket
 import time
 import threading
-import codecs
+import pickle
 import queue
 from multiprocessing import Process, Manager, Queue
 
@@ -756,10 +756,8 @@ def tcpFileClient(request, user_data):
                 print(file)
                 file, signature = encryptFile(file, request['public_key'], user.private_key)
                 # This is where we encrypt and send the file over
-                data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key}
-                data = (json.dumps(data)+'EOH').encode()
-                data.extend()
-                sock.sendall(data)
+                data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key, 'file': pickle.dumps(file), 'signature': pickle.dumps(signature)}
+                sendMessage(data, sock)
                 print("transfering file...")
 
             # Look for the response
