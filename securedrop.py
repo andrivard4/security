@@ -563,11 +563,14 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     ciphertext, tag = cipher_aes.encrypt_and_digest(message)
     [encryptedData.extend(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
 
+    print(encryptedData)
+
     return (encryptedData, signature)
 
 
 # Decrypt data and returns it
 def decryptFile(data, signature, sPublicKey, rPrivateKey):
+    print(data)
     sPublicKey = RSA.importKey(sPublicKey)
     rPrivateKey = RSA.importKey(rPrivateKey)
     decryptedData = bytearray()
