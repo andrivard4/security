@@ -472,7 +472,7 @@ def IOManager(online, user_data):
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
-                email = 'Andrivard4@icloud.com'
+                email = 'Hewwo@gmail.com'
                 online_contacts = listContacts(online, user_data)
                 found = False
                 for contact in online_contacts:
