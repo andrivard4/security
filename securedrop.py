@@ -644,7 +644,7 @@ def tcpServer(server_address, user_data):
                     if not data['identity']['public_key']:
                         print("We have to save the key...")
                     else:
-                        print(decryptFile(data['data'], data['signature'], data['identity']['public_key'], user.private_key))
+                        print(decryptFile(data['data'].encode(), data['signature'].encode(), data['identity']['public_key'], user.private_key))
                         print("We can decrypt")
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
@@ -753,10 +753,11 @@ def tcpFileClient(request, user_data):
                 print("Waiting for users response...")
             else:
                 file = request['file']
-                print(file)
                 file, signature = encryptFile(file, request['public_key'], user.private_key)
+
                 # This is where we encrypt and send the file over
-                data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key, 'file': pickle.dumps(file), 'signature': pickle.dumps(signature)}
+
+                data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key.decode(), 'data': "".join(map(chr, bytes(file))), 'signature': "".join(map(chr, bytes(signature)))}
                 sendMessage(data, sock)
                 print("transfering file...")
 
