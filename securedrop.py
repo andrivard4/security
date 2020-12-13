@@ -558,6 +558,8 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     ciphertext, tag = cipher_aes.encrypt_and_digest(message)
     [encryptedData.extend(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
 
+    encryptedData = bytes(encryptedData)
+
     print("message:", encryptedData, "\n\n\n\n" , "signature:", signature)
 
     return (encryptedData, signature)
@@ -568,7 +570,6 @@ def decryptFile(data, signature, sPublicKey, rPrivateKey):
     sPublicKey = RSA.importKey(sPublicKey)
     rPrivateKey = RSA.importKey(rPrivateKey)
     decryptedData = bytearray()
-    signature = bytes(signature)
     print("message:", data, "\n\n\n\n" , "signature:", signature)
     # Decode the 4 variables made in encryption with User's Private Key
     sizeData = rPrivateKey.size_in_bytes()
