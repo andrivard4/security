@@ -642,7 +642,7 @@ def tcpServer(server_address, user_data):
                     if not data['identity']['public_key']:
                         print("We have to save the key...")
                     else:
-                        print(decryptFile(data['data'].encode(), data['signature'].encode(), data['identity']['public_key'], user.private_key))
+                        print(decryptFile("".join(map(ord, data['data'])), "".join(map(ord, data['signature'])), data['identity']['public_key'], user.private_key))
                         print("We can decrypt")
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
