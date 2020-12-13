@@ -579,12 +579,16 @@ def decryptFile(data, signature, sPublicKey, rPrivateKey):
     rPrivateKey = RSA.importKey(rPrivateKey)
     decryptedData = bytearray()
 
+    data = b64decode(data)
+    signature = b64decode(signature)
+
     # Decode the 4 variables made in encryption with User's Private Key
     sizeData = rPrivateKey.size_in_bytes()
     enc_session_key = data[0: sizeData]
     nonce = data[sizeData: sizeData + 16]
     tag = data[sizeData + 16: sizeData + 32]
     ciphertext = data[sizeData + 32:]
+
 
     # Decrypt the message
     cipher_rsa = PKCS1_OAEP.new(rPrivateKey)
@@ -596,10 +600,9 @@ def decryptFile(data, signature, sPublicKey, rPrivateKey):
     try:
         h = SHA256.new(decryptedData)
         pkcs1_15.new(sPublicKey).verify(h, signature)
-        return json.loads(decryptedData.decode())
     except (ValueError, TypeError):
         return False
-
+    return json.loads(decryptedData.decode())
 
 # Send message to given connection
 # This will append an EOF to tell the reciever when the data is done
@@ -609,17 +612,12 @@ def sendMessage(data, connection):
 
 
 # Take file name, and the file data
-# saves file to specified path given by user
+# saves file where the program is
 def saveFile(fileName, data):
-    while True:
-        path = requestInput("Please enter directory path for the new file: ")
-        if path[-1] != '/':
-            path += '/'
-        try:
-            newFile = open(path + fileName, "wb")
-            break
-        except (OSError, IOError):
-            print("Unable to create file, try again...")
+    try:
+        newFile = open(fileName, "wb")
+    except (OSError, IOError):
+        print("Unable to create file, try again...")
 
     newFile.write(data)
     newFile.close()
@@ -632,6 +630,7 @@ def requestInput(message, options=False):
     sys.stdin.close()
     sys.stdin = open('/dev/stdin')
     listen = False
+    response = ""
     while True:
         if listen:
             response = input(message)
@@ -644,7 +643,7 @@ def requestInput(message, options=False):
                     if response == item:
                         found = True
                         break;
-            if found:
+            if found or not options:
                 print("Request complete, please type 'stop' to switch back to main process.")
                 break;
             print("Invalid input, try again.")
@@ -660,7 +659,7 @@ def requestInput(message, options=False):
                     print("You still have a pending request on another process, type 'reply' to be able to respond to it.")
                     counter = 0
     sys.stdin.close()
-    return message
+    return response
 
 
 # Handles requests to the user, some require user authentication, others dont
@@ -705,7 +704,7 @@ def tcpServer(server_address, user_data):
                         sendMessage(response, connection)
                     if not data['identity']['public_key']:
                         print('User', contactString(data['identity']), 'has sent you a key, please verify this is correct over a secure connection:')
-                        print(data['data'])
+                        print(data['key'])
                         print("If this is correct, accept connection to send your key and save their, otherwise refuese connection")
                         message = requestInput('Do you want to save the above key? [Y/n]', ['Y', 'n'])
                         if message == 'n':
@@ -715,12 +714,12 @@ def tcpServer(server_address, user_data):
                             continue
                         elif message == 'Y':
                             contact = data['identity']
-                            contact['public_key'] = data['data']
+                            contact['public_key'] = data['key']
                             user = user_data.get()
                             user.set_contact_key(contact['name'], contact['email'], data['data'])
                             user_data.put(user)
                             print("Key has been saved!")
-                    message = requestInput(' wants to send you a file, do you accept? [Y/n]', ['Y', 'n'])
+                    message = requestInput(contactString(data['identity']) + ' wants to send you a file, do you accept? [Y/n]', ['Y', 'n'])
                     if message == 'n':
                         sendMessage({'type': 'error', 'data': 'file rejected, communication terminated.'}, connection)
                         print('request denied!')
@@ -728,7 +727,6 @@ def tcpServer(server_address, user_data):
                         file = decryptFile(data['data'].encode(), data['signature'].encode(), data['identity']['public_key'], user.private_key)
                         saveFile(file['name'], b64decode(file['data']))
                         sendMessage({'type': 'success', 'data': 'File transfer complete!'}, connection)
-                    print("We can decrypt")
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
                     print('Test request recieved with data:', data['data'])
@@ -772,7 +770,7 @@ def tcpServer(server_address, user_data):
                 else:
                     response = {'type': 'error', 'data': 'unknown type sent.'}
                     sendMessage(response, connection)
-            except e as Exception:
+            except Exception as e:
                 print("An error has been handled in the TCP server.")
                 print("Error", e)
             finally:
@@ -800,7 +798,7 @@ def tcpListClient(request, responses, identityV):
                 response.extend(packet[:-3])
                 break
             response.extend(packet)
-    except e as Exception:
+    except Exception as e:
         print("Error occured:", e)
     finally:
         # Check if the responder is within the user's contacts
