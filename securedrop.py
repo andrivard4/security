@@ -17,9 +17,30 @@ import queue
 from multiprocessing import Process, Manager, Queue
 
 
-# Functions and values associated with the user
+############################################################
+# Class: User
+####################
+# Description: All Functions and Values associated with the current user who is
+#                logged into securedrop
+####################
+# Class Values: userName, userEmail, public_key, private_key, password, salt,
+#                 contacts, hash, hashed identity
+####################
+# Functions:
+#  getContacts:     Returns contacts of user
+#  addContact:      Adds contact to user.contacts given contact name and email
+#  saveUserData:    Encrypt the contact info with the public key and write to
+#                     the user's contact file
+#  export_keys:     Define the public and private export_keys
+#  import_keys:     Define the public and private import_keys
+#  loadUserData:    Decrypts ~/.securedrop/contacts.log, should it exist
+#  set_contact_key: Sets a contact public_key given a contact name, email, and
+#                     public_key
+####################
+# TESTING PURPOSES ONLY
+#  toPrint:      Prints properties of the user
+############################################################
 class User:
-    # Values associated with the user
     def __init__(self, name, email, public, private, password, salt):
         self.name = name
         self.email = email
@@ -32,16 +53,12 @@ class User:
         entered_hash.update((self.email+self.name).encode("utf8"))
         self.hashed_ideneity = entered_hash.hexdigest()
 
-    # Get contacts of the user
     def getContacts(self):
         return self.contacts
 
-    # Add a contact to the user
     def addContact(self, name, email):
         self.contacts.append({'name': name, 'email': email, 'public_key': ''})
 
-
-    # Encrypt the contact info with the public key then write it to the contact file
     def saveUserData(self):
         if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
             os.mkdir(os.path.expanduser("~") + "/.securedrop")
@@ -58,32 +75,18 @@ class User:
         [file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
         file_out.close()
 
-    # Prints properites of user
-    # Used for testing purposes
-    def toPrint(self):
-        print("name: ", self.name)
-        print("email: ", self.email)
-        print("contacts: ", self.contacts)
-        print("public_key: ", self.public_key)
-        print("private_key: ", self.private_key)
-        print("hashed_password: ", self.hashed_password)
-        print("salt: ", self.salt)
-
-    # Define Public and Private export keys of the user
     def export_keys(self):
         if self.public_key is not None:
             self.public_key = self.public_key.publickey().export_key()
         if self.private_key is not None:
             self.private_key = self.private_key.export_key()
 
-    # Define Public and Private export keys of the user
     def import_keys(self):
         if self.public_key is not None:
             self.public_key = RSA.import_key(self.public_key)
         if self.private_key is not None:
             self.private_key = RSA.import_key(self.private_key)
 
-    # Decrypts ~/.securedrop/contacts.log should it exist
     def loadUserData(self):
         # Get contact file and see if it exists
         try:
@@ -109,8 +112,23 @@ class User:
         self.saveUserData()
         self.export_keys()
 
+    def toPrint(self):
+        print("name: ", self.name)
+        print("email: ", self.email)
+        print("contacts: ", self.contacts)
+        print("public_key: ", self.public_key)
+        print("private_key: ", self.private_key)
+        print("hashed_password: ", self.hashed_password)
+        print("salt: ", self.salt)
 
-# retrieves the current IP address the program will run on
+
+############################################################
+# get_ip_address()
+####################
+# Description: Retrieves the current IP address program will run on
+# Params: None
+# Return: The IP address
+############################################################
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
@@ -119,7 +137,16 @@ def get_ip_address():
     return address
 
 
-# Given a hashed identity and a list of contacts, find the contact associated with the identity
+############################################################
+# identityToContact(identity, contracts)
+####################
+# Description: Given a hashed email and a list of contacts, find the contact
+#                associated with the identity
+# Params: identity: a hashed email
+#         contacts: list of user contacts
+# Return: The contact, should the hashed email exist within the contacts
+#         False, should the hashed email not exist within
+############################################################
 def ideneityToContact(identity, contacts):
     for contact in contacts:
         contactName = contact['name']
@@ -132,7 +159,15 @@ def ideneityToContact(identity, contacts):
     return False
 
 
-# Pooja
+############################################################
+# getRegistrationInput()
+####################
+# Description: Registers a new user when a user does not already have an account
+#              Prompts the user for a username, email, password,
+#                password confirmation
+# Params: None
+# Return: JSON data containing username, email, password, password confirmation
+############################################################
 def getRegistrationInput():
     username = input('Enter Full Name: ')
     email = input('Enter Email: ')
@@ -141,7 +176,16 @@ def getRegistrationInput():
     return {'name': username, 'email': email, 'password': password, 'confirm': confirm}
 
 
-# Validate Input from user
+############################################################
+# validateRegistrationInput(input)
+####################
+# Description: Checks if the user email is a sring in the format: *@*.*
+#              Checks if the user password and confirm match
+#              Checks if password is >7 or <101 characters, has a lowercase
+#                letter, has an uppercase letter, has a symbol, has a number
+# Params: input: JSON data containing email, password, confirm
+# Return: True or False whether there's an error or not
+############################################################
 def validateRegistrationInput(input):
     email = input['email']
     password = input['password']
@@ -205,7 +249,15 @@ def validateRegistrationInput(input):
             return False
 
 
-# Generate Public key and Private key
+############################################################
+# keyGen(password, salt)
+####################
+# Description: Generates a private_key and public_key
+#              Saves the private_key to a file in securedrop
+# Params: password: the user's input password
+#         salt: salt used to hash the password
+# Return: private_key, public_key
+############################################################
 def keyGen(password, salt):
     key = RSA.generate(2048)
     private_key = key.export_key()
@@ -222,7 +274,14 @@ def keyGen(password, salt):
     return (private_key, public_key)
 
 
-# Encrypt user password
+############################################################
+# encryptUserData(input)
+####################
+# Description: Encrypts the user's data and generates a public and private key
+# Params: input: JSON data containing password
+# Return: A User class value containing name, email, public_key, private_key,
+#           encrypted password, salt
+############################################################
 def encryptUserData(input):
     # Encrypts the user data
     password = input['password']
@@ -236,7 +295,13 @@ def encryptUserData(input):
     return User(input['name'], input['email'], public_key, private_key, encrypted_password, salt)
 
 
-# Load ~/.securedrop/user.log and put in email, name, encrypted password, and public key
+############################################################
+# loadUserFile(user)
+####################
+# Description: Take user data and write it to the user log within securedrop
+# Params: user: a User class
+# Return: None
+############################################################
 def loadUserFile(user):
     email = user.email
     name = user.name
@@ -255,7 +320,14 @@ def loadUserFile(user):
     userFile.close()
 
 
-# Checks if account is created
+############################################################
+# account_check()
+####################
+# Description: Checks if an account is created, creates ~/.securedrop directory
+#                if not
+# Params: None
+# Return: 1 or a 0 if ~/.securedrop/user.log exists or not respectively
+############################################################
 def account_check():
     if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log"):
         return 1
@@ -263,14 +335,29 @@ def account_check():
     return 0
 
 
-# Get contact name and email
+############################################################
+# getContactInput()
+####################
+# Description: Get user input for a new contact name and email
+# Params: None
+# Return: name: name of contact
+#         email: email of contact
+############################################################
 def getContactInput():
     name = input('Enter Contact Name:  ')
     email = input('Enter Contact Email:  ')
     return (name, email)
 
 
-# Validate email is an email address
+############################################################
+# validateContactInput(inputs)
+####################
+# Description: Validate the email is an email address
+# Params: inputs: name, email
+#           name: input name
+#           email: input email
+# Return: True or False whether the email is in an email format or not
+############################################################
 def validateContactInput(inputs):
     name, email = inputs
 
@@ -285,7 +372,16 @@ def validateContactInput(inputs):
     return False
 
 
-# Add a contact to the JSON data
+############################################################
+# addContactsToFile(user, inputs)
+####################
+# Description: Add a contact to the User JSON data if it does not already exist
+# Params: user: a User class
+#         inputs: input_name, input_email
+#           input_name: new contact name
+#           input_email: new contact email
+# Return: None
+############################################################
 def addContactsToFile(user, inputs):
     input_name, input_email = inputs
     for email in user.getContacts():
@@ -891,7 +987,16 @@ def tcpFileClient(request, user_data):
 
 
 
-# Main Functionality
+############################################################
+# main()
+####################
+# Description: Main functionality of the program
+#              Checks if the user needs to login or register
+#              Get IP address, sets up broadcast listen and sender processes,
+#               IO manager process, tcp process and start them
+# Params: None
+# Return: None
+############################################################
 def main():
     user = None
     # Check if user needs to login or register
