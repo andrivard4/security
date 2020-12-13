@@ -550,8 +550,6 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     h = SHA256.new(message)
     signature = pkcs1_15.new(sPrivateKey).sign(h)
 
-    print("message:", message, "\n\n\n\n" , "signature:", signature)
-
     # Encrypt
     session_key = get_random_bytes(16)
     cipher_rsa = PKCS1_OAEP.new(rPublicKey)
@@ -560,7 +558,7 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     ciphertext, tag = cipher_aes.encrypt_and_digest(message)
     [encryptedData.extend(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
 
-    print(encryptedData)
+    print("message:", encryptedData, "\n\n\n\n" , "signature:", signature)
 
     return (encryptedData, signature)
 
