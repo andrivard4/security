@@ -544,16 +544,13 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     fileName = filePath.split("/")[-1:]
     inputFile.close()
 
-    print(inputData.decode())
-    print(fileName[0])
-
     message = json.dumps({'name': fileName[0], 'data': inputData.decode()}).encode()
-
-    print(message)
 
     # Create the message signature
     h = SHA256.new(message)
     signature = pkcs1_15.new(sPrivateKey).sign(h)
+
+    print(message, signature)
 
     # Encrypt
     session_key = get_random_bytes(16)
@@ -570,12 +567,10 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
 
 # Decrypt data and returns it
 def decryptFile(data, signature, sPublicKey, rPrivateKey):
-    print(data)
     sPublicKey = RSA.importKey(sPublicKey)
     rPrivateKey = RSA.importKey(rPrivateKey)
     decryptedData = bytearray()
-
-    data = bytes(data)
+    print(data, signature)
     # Decode the 4 variables made in encryption with User's Private Key
     sizeData = rPrivateKey.size_in_bytes()
     enc_session_key = data[0: sizeData]
