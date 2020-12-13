@@ -661,7 +661,7 @@ def tcpServer(server_address, user_data):
                         sys.stdin.close()
                         sys.stdin = open('/dev/stdin')
                         print("You have a pending request on another process, type 'reply' to be able to respond to it.")
-                        message = input(ideneityToContact(data['identity'], user.getContacts())' wants to send you a file, do you accept? [Y/n]')
+                        message = input(ideneityToContact(data['identity'], user.getContacts()), ' wants to send you a file, do you accept? [Y/n]')
                         sys.stdin.close()
                         if message == 'n':
                             sendMessage({'type': 'error', 'data': 'file rejected, communication terminated.'}, connection)
