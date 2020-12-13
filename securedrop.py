@@ -544,7 +544,7 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     fileName = filePath.split("/")[-1:]
     inputFile.close()
 
-    message = json.dumps({'name': fileName[0], 'data': inputData.decode()}).encode()
+    message = json.dumps({'name': fileName[0], 'data': b64encode(inputData).decode()}).encode()
 
     # Create the message signature
     h = SHA256.new(message)
@@ -560,9 +560,6 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
 
     encryptedData = bytes(encryptedData)
 
-    print("message:", encryptedData, "\n\n\n\n" , "signature:", signature, "\n\n\n\n")
-
-    print("message:", b64encode(encryptedData), "\n\n\n\n" , "signature:", b64encode(signature), "\n\n\n\n")
 
     return (b64encode(encryptedData), b64encode(signature))
 
