@@ -550,7 +550,7 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     h = SHA256.new(message)
     signature = pkcs1_15.new(sPrivateKey).sign(h)
 
-    print(message, signature)
+    print("message:", message, "\n\n\n\n" , "signature:", signature)
 
     # Encrypt
     session_key = get_random_bytes(16)
@@ -570,7 +570,8 @@ def decryptFile(data, signature, sPublicKey, rPrivateKey):
     sPublicKey = RSA.importKey(sPublicKey)
     rPrivateKey = RSA.importKey(rPrivateKey)
     decryptedData = bytearray()
-    print(data, signature)
+    signature = bytes(signature)
+    print("message:", data, "\n\n\n\n" , "signature:", signature)
     # Decode the 4 variables made in encryption with User's Private Key
     sizeData = rPrivateKey.size_in_bytes()
     enc_session_key = data[0: sizeData]
