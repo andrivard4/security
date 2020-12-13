@@ -391,7 +391,13 @@ def addContactsToFile(user, inputs):
     user.addContact(input_name, input_email)
 
 
-# Gets information about user account
+############################################################
+# getAccountInfo()
+####################
+# Description: Gets information about the user's account
+# Params: None
+# Return: A User class containing the information taken from the user's log
+############################################################
 def getAccountInfo():
     account_file = open(os.path.expanduser("~") + "/.securedrop/user.log", "r")
     account_data = account_file.read()
@@ -405,7 +411,15 @@ def getAccountInfo():
     return User(name, email, public_key, None, hashed_password, salt)
 
 
-# User login
+############################################################
+# autho_user()
+####################
+# Description: User login and verification
+# Params: A User class
+# Return: A User class from params with contact data and private key if login
+#           was successful
+#         An error and complete exit if login unsuccessful
+############################################################
 def autho_user(user):
     # Get user input
     print("Log in for account ", user.email)
@@ -442,7 +456,13 @@ def autho_user(user):
         exit()
 
 
-# Register a new user functions
+############################################################
+# register_user()
+####################
+# Description: Add a new user to securedrop
+# Params: None
+# Return: A User class made from user input
+############################################################
 def register_user():
     input = getRegistrationInput()
     while(not validateRegistrationInput(input)):
@@ -452,13 +472,25 @@ def register_user():
     return user
 
 
-# Login user functions
+############################################################
+# login_user()
+####################
+# Description: Calls autho_user function with User class from getAccountInfo()
+# Params: None
+# Return: A User class returned from autho_user
+############################################################
 def login_user():
     user = autho_user(getAccountInfo())
     return user
 
 
-# Add contact functions
+############################################################
+# addContact(user_data)
+####################
+# Description: Gets input from user to add a contact
+# Params: user_data
+# Return: None
+############################################################
 def addContact(user_data):
     inputs = getContactInput()
     while not validateContactInput(inputs):
@@ -470,8 +502,16 @@ def addContact(user_data):
     user.export_keys()
     user_data.put(user)
 
-# Helper function for sending files
-# This gets the file location, and an online contact to send it to
+
+############################################################
+# sendFile(online, user_data)
+####################
+# Description: Helper function for sending files
+#              Gets the file location and an online contact to send it to
+# Params: online: list of client arrays in the format client[hashed email, name]
+#         user_data:
+# Return: None
+############################################################
 def sendFile(online, user_data):
     email = input('Please enter the users email:')
     online_contacts = listContacts(online, user_data)
@@ -487,7 +527,14 @@ def sendFile(online, user_data):
     contact['file'] = file
     tcpFileClient(contact, user_data)
 
-# User input functions
+
+############################################################
+# help()
+####################
+# Description: Print statements after user types command help
+# Params: None
+# Return: None
+############################################################
 def help():
     print("Type 'add' to add a new contact")
     print("Type 'list' to list all online ontacts")
@@ -498,7 +545,15 @@ def help():
     print("Type 'exit' to exit SecureDrop")
 
 
-# Braodcast Listener for online communication
+############################################################
+# broadcast_listener(s, id, online)
+####################
+# Description: Listens for online communication and ignores self broadcast
+# Params: s: socket being used
+#         id: User's broadcast id
+#         online: List of all broadcasts
+# Return: None
+############################################################
 def broadcast_listener(s, id, online):
     ignore = 0
     try:
@@ -930,7 +985,8 @@ def tcpFileClient(request, user_data):
                 file = request['file']
                 file, signature = encryptFile(file, request['public_key'], user.private_key)
 
-                # send the file, your key (used if they dont have it), and the sinature
+                # send the file, your key (used if they dont have it),
+                #  and the sinature
                 data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key.decode(), 'data': file.decode(), 'signature': signature.decode()}
                 print("transfering file...")
                 sendMessage(data, sock)
@@ -976,7 +1032,8 @@ def tcpFileClient(request, user_data):
                     else:
                         print('request denied!')
                         break
-            # This is to test TCP and we left it here for fun. It just sends an unencrypted message back and forth
+            # This is to test TCP and we left it here for fun. It just sends an
+            #  unencrypted message back and forth
             elif response['type'] == 'test':
                 print('Recieved test back with data:', response['data'])
                 break
@@ -1014,7 +1071,8 @@ def main():
     # This is for shared data between the processes
     # Online is populated by broadcast_listener, and read by other processes
     online = Manager().list()
-    # The user will be in here, when needed it will be removed and other processes will block until its placed back in
+    # The user will be in here, when needed it will be removed and other
+    #  processes will block until its placed back in
     user_data = Queue()
     # This is genereated to ignore our own broadcasts
     id = get_random_bytes(16)
@@ -1023,7 +1081,8 @@ def main():
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     s.bind(('', 1338))
 
-    # This translates the user keys to bytearrays so its pickleable (only for cross process communication)
+    # This translates the user keys to bytearrays so its pickleable (only for
+    #  cross process communication)
     user.export_keys()
     user_data.put(user)
 
