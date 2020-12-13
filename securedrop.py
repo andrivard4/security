@@ -12,7 +12,7 @@ import sys
 import socket
 import time
 import threading
-import pickle
+from base64 import b64encode, b64decode
 import queue
 from multiprocessing import Process, Manager, Queue
 
@@ -560,9 +560,11 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
 
     encryptedData = bytes(encryptedData)
 
-    print("message:", encryptedData, "\n\n\n\n" , "signature:", signature)
+    print("message:", encryptedData, "\n\n\n\n" , "signature:", signature, "\n\n\n\n")
 
-    return (encryptedData, signature)
+    print("message:", b64encode(encryptedData), "\n\n\n\n" , "signature:", b64encode(signature), "\n\n\n\n")
+
+    return (b64encode(encryptedData), b64encode(signature))
 
 
 # Decrypt data and returns it
@@ -570,7 +572,10 @@ def decryptFile(data, signature, sPublicKey, rPrivateKey):
     sPublicKey = RSA.importKey(sPublicKey)
     rPrivateKey = RSA.importKey(rPrivateKey)
     decryptedData = bytearray()
-    print("message:", data, "\n\n\n\n" , "signature:", signature)
+    print("message:", data, "\n\n\n\n" , "signature:", signature, "\n\n\n\n")
+    data = b64decode(data)
+    signature = b64decode(signature)
+    print("message:", data, "\n\n\n\n" , "signature:", signature, "\n\n\n\n")
     # Decode the 4 variables made in encryption with User's Private Key
     sizeData = rPrivateKey.size_in_bytes()
     enc_session_key = data[0: sizeData]
@@ -642,7 +647,7 @@ def tcpServer(server_address, user_data):
                     if not data['identity']['public_key']:
                         print("We have to save the key...")
                     else:
-                        print(decryptFile("".join(map(ord, data['data'])), "".join(map(ord, data['signature'])), data['identity']['public_key'], user.private_key))
+                        print(decryptFile(data['data'], data['signature'], data['identity']['public_key'], user.private_key))
                         print("We can decrypt")
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
@@ -755,7 +760,7 @@ def tcpFileClient(request, user_data):
 
                 # This is where we encrypt and send the file over
 
-                data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key.decode(), 'data': "".join(map(chr, bytes(file))), 'signature': "".join(map(chr, bytes(signature)))}
+                data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key.decode(), 'data': file, 'signature': signature}
                 sendMessage(data, sock)
                 print("transfering file...")
 
