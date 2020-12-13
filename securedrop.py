@@ -644,7 +644,7 @@ def requestInput(message, options=False):
                     if response == item:
                         found = True
                         break;
-            if found
+            if found:
                 print("Request complete, please type 'stop' to switch back to main process.")
                 break;
             print("Invalid input, try again.")
@@ -879,7 +879,7 @@ def tcpFileClient(request, user_data):
                         user_data.put(user)
                         request['public_key']  = response['data']
                         print('Public key saved successfully!')
-                    elif:
+                    else:
                         print('request denied!')
                         break
             # This is to test TCP and we left it here for fun. It just sends an unencrypted message back and forth
