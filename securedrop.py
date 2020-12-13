@@ -612,7 +612,7 @@ def saveFile(fileName, data):
     except (OSError, IOError):
         print("Unable to create file")
         return
-    newFile.write(x)
+    newFile.write(data)
     newFile.close()
 
 
