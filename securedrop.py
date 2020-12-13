@@ -504,12 +504,13 @@ def addContact(user_data):
 
 
 ############################################################
-# sendFile(online, user_data)
+# (online, user_data)
 ####################
 # Description: Helper function for sending files
 #              Gets the file location and an online contact to send it to
-# Params: online: list of client arrays in the format client[hashed email, name]
-#         user_data:
+# Params: online: list of client arrays in the format
+#                   client[hashed email, IP address]
+#         user_data: the Queue()
 # Return: None
 ############################################################
 def sendFile(online, user_data):
@@ -578,7 +579,15 @@ def broadcast_listener(s, id, online):
         pass
 
 
-# Sends a broadcast with your identity (hashed name and email)
+############################################################
+# broadcast_sender(port, id, user_data)
+####################
+# Description: Sends a broadcast with hashed name/email and IP address
+# Params: port: 1338
+#         id: User's broadcast id
+#         user_data: the Queue()
+# Return: None
+############################################################
 def broadcast_sender(port, id, user_data):
     user = user_data.get()
     user_data.put(user)
@@ -594,7 +603,15 @@ def broadcast_sender(port, id, user_data):
         pass
 
 
-# Checks for online contacts
+############################################################
+# contactHandler(requests, responses, user)
+####################
+# Description: Creates a tcp server for every online contact
+# Params: requests: List of online contacts
+#         responses: Queue responses
+#         user: User data
+# Return: None
+############################################################
 def contactHandler(requests, responses, user):
     active_requests = []
     # Create a tcp server thread for every online contact
@@ -609,8 +626,15 @@ def contactHandler(requests, responses, user):
         trd.join()
 
 
-# Finds all online contacts, checks if user has them in contacts,
-# check if they have user in contacts, if so add them to the list
+############################################################
+# listContacts(online, user_data)
+####################
+# Description: Finds all online contacts, checks if user has them in contacts,
+#                check if they have user in contacts, add them to the list if so
+# Params: online: List of all broadcasts
+#         user_data: the Queue()
+# Return:
+############################################################
 def listContacts(online, user_data):
     user = user_data.get()
     user_data.put(user)
@@ -629,7 +653,15 @@ def listContacts(online, user_data):
     return parsed_responses
 
 
-# Process to handle 90% of the user interaction
+############################################################
+# IOManager(online, user_data)
+####################
+# Description: Process to handle around 90% of the user's interaction
+#              Deals with commands help, add, list, send, reply, key, exit
+# Params: online: List of all broadcasts
+#         user_data: the Queue()
+# Return: None
+############################################################
 def IOManager(online, user_data):
     sys.stdin.close()
     sys.stdin = open('/dev/stdin')
@@ -663,12 +695,26 @@ def IOManager(online, user_data):
         pass
 
 
-#converts an object type contact to a string
+############################################################
+# contactString(data)
+####################
+# Description: Converts an object type contact to a string
+# Params: data: object type contact
+# Return: String data
+############################################################
 def contactString(data):
     return data['name'] + " <" + data['email'] + ">"
 
 
-# Verify people in contacts who are online, given array of online users
+############################################################
+# verify_online_contacts(online, user)
+####################
+# Description: Verify people in contacts who are online, given an array of
+#                online users
+# Params: online: List of all broadcasts
+#         user: a User class
+# Return:
+############################################################
 def verify_online_contacts(online, user):
     onlineContacts = []
     # For each people, get hashed email
@@ -686,8 +732,16 @@ def verify_online_contacts(online, user):
     return onlineContacts
 
 
-# Takes an input file name and checks if file exists
-# If so, open and return encrypted data
+############################################################
+# encryptFile(filePath, rPublicKey, sPrivateKey)
+####################
+# Description: Takes an input file name and checks if file exists
+#              If it exists, open and return encrypted data
+# Params: filePath: path to file
+#         rPublicKey: Recipient's public key
+#         sPrivateKey: User/Sharer's private key
+# Return: base64 encoded encrypted data, base64 encoded signature
+############################################################
 def encryptFile(filePath, rPublicKey, sPrivateKey):
     rPublicKey = RSA.importKey(rPublicKey)
     sPrivateKey = RSA.importKey(sPrivateKey)
@@ -724,7 +778,16 @@ def encryptFile(filePath, rPublicKey, sPrivateKey):
     return (b64encode(bytes(encryptedData)), b64encode(signature))
 
 
-# Decrypt data and returns it
+############################################################
+# decryptFile(data, signature, sPublicKey, rPrivateKey)
+####################
+# Description: Decrypt data
+# Params: data: Encrypted data
+#         signature: signature used during encryption
+#         sPublicKey: Sender's public_key
+#         rPrivateKey: User/Receiver's private_key
+# Return: Decrypted data
+############################################################
 def decryptFile(data, signature, sPublicKey, rPrivateKey):
     sPublicKey = RSA.importKey(sPublicKey)
     rPrivateKey = RSA.importKey(rPrivateKey)
@@ -755,15 +818,29 @@ def decryptFile(data, signature, sPublicKey, rPrivateKey):
         return False
     return json.loads(decryptedData.decode())
 
-# Send message to given connection
-# This will append an EOF to tell the reciever when the data is done
+
+############################################################
+# sendMessage(data, connection)
+####################
+# Description: Send a message to a given connection
+#              Appends an EOF to tell the receiver when the data is done
+# Params: data: Data to send
+#         connection: Connection to send the data to
+# Return: None
+############################################################
 def sendMessage(data, connection):
     data = (json.dumps(data)+'EOF').encode()
     connection.sendall(data)
 
 
-# Take file name, and the file data
-# saves file where the program is
+############################################################
+# saveFile(fileName, data)
+####################
+# Description: Saves a given file where the program is
+# Params: fileName: name of the file
+#         data: data to put in the file
+# Return: None
+############################################################
 def saveFile(fileName, data):
     try:
         newFile = open(fileName, "wb")
@@ -774,8 +851,16 @@ def saveFile(fileName, data):
     newFile.close()
 
 
-# Requests user input from another process other then IOManager
-# this is helpful because it allows us to respond to things
+############################################################
+# requestInput(message, options=False)
+####################
+# Description: Requests the user input from another process other than IOManager
+#              Allows responses to messages
+# Params: message: Message to show user for input
+#         options=False: Either requests specific input from the user or stays
+#           False
+# Return: Response to options input
+############################################################
 def requestInput(message, options=False):
     print("You have a pending request on another process, type 'reply' to be able to respond to it.")
     sys.stdin.close()
@@ -813,7 +898,15 @@ def requestInput(message, options=False):
     return response
 
 
-# Handles requests to the user, some require user authentication, others dont
+############################################################
+# tcpServer(server_address, user_data)
+####################
+# Description: Handles requests to user
+#              Some request require authentication while others don't
+# Params: server_address: IP address
+#         user_data: the Queue()
+# Return: None
+############################################################
 def tcpServer(server_address, user_data):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_address[0], 10000))
@@ -933,7 +1026,15 @@ def tcpServer(server_address, user_data):
         pass
 
 
-# See if you are within the user's contacts
+############################################################
+# tcpListClient(request, responses, identityV)
+####################
+# Description: Check if responder is within user contacts
+# Params: requests: List of online contacts
+#         responses: Queue responses
+#         identityV: Hashed identity of user
+# Return: None
+############################################################
 def tcpListClient(request, responses, identityV):
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -964,7 +1065,14 @@ def tcpListClient(request, responses, identityV):
         sock.close()
 
 
-# Handle createing requests for key transfer and file transfer
+############################################################
+# tcpFileClient(request, user_data)
+####################
+# Description: Handle creating requests for key and file transfer
+# Params: request: contact that includes a value for file path
+#         user_data: the Queue()
+# Return: None
+############################################################
 def tcpFileClient(request, user_data):
     user = user_data.get()
     user_data.put(user)
