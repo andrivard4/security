@@ -637,14 +637,24 @@ def tcpServer(server_address, user_data):
                         response = {'type': 'contact', 'data': user.hashed_ideneity}
                         sendMessage(response, connection)
                 elif data['type'] == 'file':
-                    print("Hello")
                     if not data['identity']:
                         response = {'type': 'error', 'data': 'Verified identity required for this action.'}
                         sendMessage(response, connection)
                     if not data['identity']['public_key']:
                         print("We have to save the key...")
                     else:
-                        print(decryptFile(data['data'].encode(), data['signature'].encode(), data['identity']['public_key'], user.private_key))
+                        sys.stdin.close()
+                        sys.stdin = open('/dev/stdin')
+                        print("You have a pending request on another process, type 'reply' to be able to respond to it.")
+                        message = input(ideneityToContact(data['identity'], user.getContacts())' wants to send you a file, do you accept? [Y/n]')
+                        sys.stdin.close()
+                        if message == 'n':
+                            sendMessage({'type': 'error', 'data': 'file rejected, communication terminated.'}, connection)
+                            print('request denied!')
+                        elif message == 'Y':
+                            file = decryptFile(data['data'].encode(), data['signature'].encode(), data['identity']['public_key'], user.private_key)
+                            saveFile(file['name'], b64decode(file['data']))
+                            sendMessage({'type': 'success', 'data': 'File transfer complete!'}, connection)
                         print("We can decrypt")
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
