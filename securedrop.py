@@ -601,6 +601,21 @@ def sendMessage(data, connection):
     data = (json.dumps(data)+'EOF').encode()
     connection.sendall(data)
 
+
+# Take file name, data, new file path
+def saveFile(fileName, data):
+
+    path = input("Please enter directory path for the new file: ")
+
+    try:
+        newFile = open(path + fileName, "wb")
+    except (OSError, IOError):
+        print("Unable to create file")
+        return
+    newFile.write(x)
+    newFile.close()
+
+
 def tcpServer(server_address, user_data):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_address[0], 10000))
