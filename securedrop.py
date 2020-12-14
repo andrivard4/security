@@ -4,6 +4,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Signature import pkcs1_15
 import json
 import getpass
 import os
@@ -11,12 +12,14 @@ import sys
 import socket
 import time
 import threading
+from base64 import b64encode, b64decode
 import queue
 from multiprocessing import Process, Manager, Queue
 
 
+# Functions and values associated with the user
 class User:
-
+    # Values associated with the user
     def __init__(self, name, email, public, private, password, salt):
         self.name = name
         self.email = email
@@ -29,14 +32,15 @@ class User:
         entered_hash.update((self.email+self.name).encode("utf8"))
         self.hashed_ideneity = entered_hash.hexdigest()
 
+    # Get contacts of the user
     def getContacts(self):
         return self.contacts
 
+    # Add a contact to the user
     def addContact(self, name, email):
         self.contacts.append({'name': name, 'email': email, 'public_key': ''})
 
 
-    # Cassie, Pooja
     # Encrypt the contact info with the public key then write it to the contact file
     def saveUserData(self):
         if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
@@ -54,6 +58,8 @@ class User:
         [file_out.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
         file_out.close()
 
+    # Prints properites of user
+    # Used for testing purposes
     def toPrint(self):
         print("name: ", self.name)
         print("email: ", self.email)
@@ -63,19 +69,20 @@ class User:
         print("hashed_password: ", self.hashed_password)
         print("salt: ", self.salt)
 
+    # Define Public and Private export keys of the user
     def export_keys(self):
         if self.public_key is not None:
             self.public_key = self.public_key.publickey().export_key()
         if self.private_key is not None:
             self.private_key = self.private_key.export_key()
 
+    # Define Public and Private export keys of the user
     def import_keys(self):
         if self.public_key is not None:
             self.public_key = RSA.import_key(self.public_key)
         if self.private_key is not None:
             self.private_key = RSA.import_key(self.private_key)
 
-    # Cassie, Pooja
     # Decrypts ~/.securedrop/contacts.log should it exist
     def loadUserData(self):
         # Get contact file and see if it exists
@@ -103,6 +110,7 @@ class User:
         self.export_keys()
 
 
+# retrieves the current IP address the program will run on
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
@@ -111,6 +119,7 @@ def get_ip_address():
     return address
 
 
+# Given a hashed identity and a list of contacts, find the contact associated with the identity
 def ideneityToContact(identity, contacts):
     for contact in contacts:
         contactName = contact['name']
@@ -125,8 +134,6 @@ def ideneityToContact(identity, contacts):
 
 # Pooja
 def getRegistrationInput():
-    # Get user input from command line
-    # Save it in the above variables
     username = input('Enter Full Name: ')
     email = input('Enter Email: ')
     password = getpass.getpass(prompt='Enter Password: ')
@@ -134,7 +141,6 @@ def getRegistrationInput():
     return {'name': username, 'email': email, 'password': password, 'confirm': confirm}
 
 
-# Cassie
 # Validate Input from user
 def validateRegistrationInput(input):
     email = input['email']
@@ -199,7 +205,6 @@ def validateRegistrationInput(input):
             return False
 
 
-# Andrew
 # Generate Public key and Private key
 def keyGen(password, salt):
     key = RSA.generate(2048)
@@ -217,7 +222,6 @@ def keyGen(password, salt):
     return (private_key, public_key)
 
 
-# Andrew
 # Encrypt user password
 def encryptUserData(input):
     # Encrypts the user data
@@ -232,7 +236,6 @@ def encryptUserData(input):
     return User(input['name'], input['email'], public_key, private_key, encrypted_password, salt)
 
 
-# Andrew
 # Load ~/.securedrop/user.log and put in email, name, encrypted password, and public key
 def loadUserFile(user):
     email = user.email
@@ -242,19 +245,16 @@ def loadUserFile(user):
     public_key = user.public_key
     userFile = open(os.path.expanduser("~") + "/.securedrop/user.log", "w")
     userFile.write(
-        json.dumps(
-            {
-                'email': email,
-                'name': name,
-                'credentials': salt.hex() + ":" + pswd,
-                'pub': public_key.export_key().hex()
-            }
-        )
+        json.dumps({
+            'email': email,
+            'name': name,
+            'credentials': salt.hex() + ":" + pswd,
+            'pub': public_key.export_key().hex()
+        })
     )
     userFile.close()
 
 
-# Andrew
 # Checks if account is created
 def account_check():
     if os.path.exists(os.path.expanduser("~") + "/.securedrop/user.log"):
@@ -263,7 +263,6 @@ def account_check():
     return 0
 
 
-# Cassie, Pooja
 # Get contact name and email
 def getContactInput():
     name = input('Enter Contact Name:  ')
@@ -272,7 +271,6 @@ def getContactInput():
 
 
 # Validate email is an email address
-# Cassie, Pooja
 def validateContactInput(inputs):
     name, email = inputs
 
@@ -287,7 +285,6 @@ def validateContactInput(inputs):
     return False
 
 
-# Cassie, Pooja
 # Add a contact to the JSON data
 def addContactsToFile(user, inputs):
     input_name, input_email = inputs
@@ -298,7 +295,6 @@ def addContactsToFile(user, inputs):
     user.addContact(input_name, input_email)
 
 
-# Andrew
 # Gets information about user account
 def getAccountInfo():
     account_file = open(os.path.expanduser("~") + "/.securedrop/user.log", "r")
@@ -313,16 +309,18 @@ def getAccountInfo():
     return User(name, email, public_key, None, hashed_password, salt)
 
 
-# Andrew
 # User login
 def autho_user(user):
+    # Get user input
     print("Log in for account ", user.email)
     pswd_input = getpass.getpass(prompt='Enter Password: ')
 
+    # Hash the input password
     pswd_input_hasher = SHA256.new()
     pswd_input_hasher.update(bytes.fromhex(user.salt) + pswd_input.encode("utf8"))
     pswd_input_hashed = pswd_input_hasher.hexdigest()
 
+    # Verify user with hashed password
     if (user.hashed_password == pswd_input_hashed):
         print("Login Success!")
         key_file = open(os.path.expanduser("~") + "/.securedrop/private.pem","rb")
@@ -376,17 +374,36 @@ def addContact(user_data):
     user.export_keys()
     user_data.put(user)
 
+# Helper function for sending files
+# This gets the file location, and an online contact to send it to
+def sendFile(online, user_data):
+    email = input('Please enter the users email:')
+    online_contacts = listContacts(online, user_data)
+    found = False
+    for contact in online_contacts:
+        if contact['email'] == email:
+            found = contact
+            break
+    if not found:
+        print("User is not online!")
+        return
+    file = input('Please enter the path to your file:')
+    contact['file'] = file
+    tcpFileClient(contact, user_data)
 
 # User input functions
 def help():
     print("Type 'add' to add a new contact")
     print("Type 'list' to list all online ontacts")
     print("Type 'send' to transfer file to contact")
+    print("Type 'key' to view your public key")
+    print("Type 'reply' to answer request on another process")
+    print("Type 'stop' to exit reply mode")
     print("Type 'exit' to exit SecureDrop")
 
 
+# Braodcast Listener for online communication
 def broadcast_listener(s, id, online):
-
     ignore = 0
     try:
         while True:
@@ -410,6 +427,7 @@ def broadcast_listener(s, id, online):
         pass
 
 
+# Sends a broadcast with your identity (hashed name and email)
 def broadcast_sender(port, id, user_data):
     user = user_data.get()
     user_data.put(user)
@@ -425,6 +443,7 @@ def broadcast_sender(port, id, user_data):
         pass
 
 
+# Checks for online contacts
 def contactHandler(requests, responses, user):
     active_requests = []
     # Create a tcp server thread for every online contact
@@ -439,6 +458,8 @@ def contactHandler(requests, responses, user):
         trd.join()
 
 
+# Finds all online contacts, checks if user has them in contacts,
+# check if they have user in contacts, if so add them to the list
 def listContacts(online, user_data):
     user = user_data.get()
     user_data.put(user)
@@ -457,6 +478,7 @@ def listContacts(online, user_data):
     return parsed_responses
 
 
+# Process to handle 90% of the user interaction
 def IOManager(online, user_data):
     sys.stdin.close()
     sys.stdin = open('/dev/stdin')
@@ -466,23 +488,14 @@ def IOManager(online, user_data):
             if (task == 'add'):
                 addContact(user_data)
             elif(task == 'exit'):
-                raise KeyboardInterrupt()
+                print("To exit at any time press Ctrl+C")
             elif(task == 'list'):
-                print(listContacts(online, user_data))
+                for contact in listContacts(online, user_data):
+                    print(contact['name'], "\t", contact['email'], "\t", "Verified" if contact['public_key'] else "Not verified")
             elif(task == 'help'):
                 help()
             elif(task == 'send'):
-                email = 'Hewwo@gmail.com'
-                online_contacts = listContacts(online, user_data)
-                found = False
-                for contact in online_contacts:
-                    if contact['email'] == email:
-                        found = contact
-                        break
-                if not found:
-                    print("User is not online!")
-                    continue
-                tcpFileClient(contact, user_data)
+                sendFile(online, user_data)
             elif(task == 'reply'):
                 for line in sys.stdin:
                     if line[:-1] == 'stop':
@@ -493,13 +506,13 @@ def IOManager(online, user_data):
                 user = user_data.get()
                 user_data.put(user)
                 print(user.public_key.decode())
-                print(user.getContacts())
             else:
                 print("Unknown command, type help for help.")
     except KeyboardInterrupt:
         pass
 
 
+#converts an object type contact to a string
 def contactString(data):
     return data['name'] + " <" + data['email'] + ">"
 
@@ -521,10 +534,138 @@ def verify_online_contacts(online, user):
                 onlineContacts.append([contactName, contactEmail, client[1], public_key])
     return onlineContacts
 
+
+# Takes an input file name and checks if file exists
+# If so, open and return encrypted data
+def encryptFile(filePath, rPublicKey, sPrivateKey):
+    rPublicKey = RSA.importKey(rPublicKey)
+    sPrivateKey = RSA.importKey(sPrivateKey)
+    encryptedData = bytearray()
+    # Check if file exists
+    try:
+        inputFile = open(filePath, "rb")
+    except (OSError, IOError):
+        print("File not found")
+        return
+    if os.path.getsize(filePath) == 0:
+        print("File is empty")
+        return
+    # Read from file and close
+    inputData = inputFile.read()
+    fileName = filePath.split("/")[-1:]
+    inputFile.close()
+
+    # Generate data to send
+    message = json.dumps({'name': fileName[0], 'data': b64encode(inputData).decode()}).encode()
+
+    # Create the message signature
+    h = SHA256.new(message)
+    signature = pkcs1_15.new(sPrivateKey).sign(h)
+
+    # Encrypt the message
+    session_key = get_random_bytes(16)
+    cipher_rsa = PKCS1_OAEP.new(rPublicKey)
+    enc_session_key = cipher_rsa.encrypt(session_key)
+    cipher_aes = AES.new(session_key, AES.MODE_EAX)
+    ciphertext, tag = cipher_aes.encrypt_and_digest(message)
+    [encryptedData.extend(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
+
+    return (b64encode(bytes(encryptedData)), b64encode(signature))
+
+
+# Decrypt data and returns it
+def decryptFile(data, signature, sPublicKey, rPrivateKey):
+    sPublicKey = RSA.importKey(sPublicKey)
+    rPrivateKey = RSA.importKey(rPrivateKey)
+    decryptedData = bytearray()
+
+    data = b64decode(data)
+    signature = b64decode(signature)
+
+    # Decode the 4 variables made in encryption with User's Private Key
+    sizeData = rPrivateKey.size_in_bytes()
+    enc_session_key = data[0: sizeData]
+    nonce = data[sizeData: sizeData + 16]
+    tag = data[sizeData + 16: sizeData + 32]
+    ciphertext = data[sizeData + 32:]
+
+
+    # Decrypt the message
+    cipher_rsa = PKCS1_OAEP.new(rPrivateKey)
+    session_key = cipher_rsa.decrypt(enc_session_key)
+    cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
+    decryptedData = cipher_aes.decrypt_and_verify(ciphertext, tag)
+
+    # Verify with signature
+    try:
+        h = SHA256.new(decryptedData)
+        pkcs1_15.new(sPublicKey).verify(h, signature)
+    except (ValueError, TypeError):
+        return False
+    return json.loads(decryptedData.decode())
+
+# Send message to given connection
+# This will append an EOF to tell the reciever when the data is done
 def sendMessage(data, connection):
     data = (json.dumps(data)+'EOF').encode()
     connection.sendall(data)
 
+
+# Take file name, and the file data
+# saves file where the program is
+def saveFile(fileName, data):
+    try:
+        newFile = open(fileName, "wb")
+    except (OSError, IOError):
+        print("Unable to create file, try again...")
+
+    newFile.write(data)
+    newFile.close()
+
+
+# Requests user input from another process other then IOManager
+# this is helpful because it allows us to respond to things
+def requestInput(message, options=False):
+    print("You have a pending request on another process, type 'reply' to be able to respond to it.")
+    sys.stdin.close()
+    sys.stdin = open('/dev/stdin')
+    listen = False
+    return_val = ""
+    while True:
+        if listen:
+            response = input(message)
+            if response == 'stop':
+                if return_val != '':
+                    break
+                listen = False
+                continue
+            found = False
+            if options:
+                for item in options:
+                    if response == item:
+                        found = True
+            if found or not options:
+                message = ''
+                return_val = response
+                print("Request complete, please type 'stop' to switch back to main process.")
+            else:
+                print("Invalid input, try again.")
+        else:
+            counter = 0
+            for line in sys.stdin:
+                counter += 1
+                if line[:-1] == 'reply':
+                    sys.stdin.flush()
+                    listen = True
+                    break
+                elif counter == 5:
+                    print("You still have a pending request on another process, type 'reply' to be able to respond to it.")
+                    counter = 0
+    sys.stdin.close()
+    return return_val
+
+
+# Handles requests to the user, some require user authentication, others dont
 def tcpServer(server_address, user_data):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_address[0], 10000))
@@ -560,15 +701,40 @@ def tcpServer(server_address, user_data):
                     else:
                         response = {'type': 'contact', 'data': user.hashed_ideneity}
                         sendMessage(response, connection)
+                elif data['type'] == 'file':
+                    if not data['identity']:
+                        response = {'type': 'error', 'data': 'Verified identity required for this action.'}
+                        sendMessage(response, connection)
+                    if not data['identity']['public_key']:
+                        print('User', contactString(data['identity']), 'has sent you a key, please verify this is correct over a secure connection:')
+                        print(data['key'])
+                        print("If this is correct, accept connection to send your key and save their, otherwise refuese connection")
+                        message = requestInput('Do you want to save the above key? [Y/n]', ['Y', 'n'])
+                        if message == 'n':
+                            sendMessage({'type': 'error', 'data': 'key rejected, communication terminated.'}, connection)
+                            print('request denied!')
+                            connection.close()
+                            continue
+                        elif message == 'Y':
+                            contact = data['identity']
+                            contact['public_key'] = data['key']
+                            user = user_data.get()
+                            user.set_contact_key(contact['name'], contact['email'], data['key'])
+                            user_data.put(user)
+                            print("Key has been saved!")
+                    message = requestInput(contactString(data['identity']) + ' wants to send you a file, do you accept? [Y/n]', ['Y', 'n'])
+                    if message == 'n':
+                        sendMessage({'type': 'error', 'data': 'file rejected, communication terminated.'}, connection)
+                        print('request denied!')
+                    elif message == 'Y':
+                        file = decryptFile(data['data'].encode(), data['signature'].encode(), data['identity']['public_key'], user.private_key)
+                        saveFile(file['name'], b64decode(file['data']))
+                        sendMessage({'type': 'success', 'data': 'File transfer complete!'}, connection)
+                        print("File has been saved!")
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
                     print('Test request recieved with data:', data['data'])
-                    sys.stdin.close()
-                    sys.stdin = open('/dev/stdin')
-                    print("You have a pending request on another process, type 'reply' to be able to respond to it.")
-                    message = input('What should you send back?')
-                    sys.stdin.close()
-                    print("Request complete, please type 'stop' to switch back to main process.")
+                    message = requestInput('What should you send back?')
                     sendMessage({'type': 'test', 'data': message}, connection)
                 elif data['type'] == 'key':
                     # Handles a request when someone sends you a key. If identity isnt set, reject
@@ -579,11 +745,7 @@ def tcpServer(server_address, user_data):
                         print('User', contactString(data['identity']), 'has sent you a key, please verify this is correct over a secure connection:')
                         print(data['data'])
                         print("If this is correct, accept connection to send your key and save their, otherwise refuese connection")
-                        sys.stdin.close()
-                        sys.stdin = open('/dev/stdin')
-                        print("You have a pending request on another process, type 'reply' to be able to respond to it.")
-                        message = input('Do you want to save the above key? [Y/n]')
-                        sys.stdin.close()
+                        message = requestInput('Do you want to save the above key? [Y/n]', ['Y', 'n'])
                         if message == 'n':
                             sendMessage({'type': 'error', 'data': 'key rejected, communication terminated.'}, connection)
                             print('request denied!')
@@ -594,7 +756,7 @@ def tcpServer(server_address, user_data):
                             user.set_contact_key(contact['name'], contact['email'], data['data'])
                             user_data.put(user)
                             sendMessage({'type': 'success', 'data': 'key accepted and saved!'}, connection)
-                        print("Request complete, please type 'stop' to switch back to main process.")
+                            print("Key has been saved!")
                 elif data['type'] == 'key-request':
                     # Handles a request when someone sends you a key. If identity isnt set, reject
                     if not data['identity']:
@@ -602,29 +764,30 @@ def tcpServer(server_address, user_data):
                         sendMessage(response, connection)
                     else:
                         print('User', contactString(data['identity']), 'has requested your public key, please verify that this request is expected:')
-                        sys.stdin.close()
-                        sys.stdin = open('/dev/stdin')
-                        message = input('Do you want to send your public key? [Y/n]')
-                        sys.stdin.close()
+                        message = requestInput('Do you want to send your public key? [Y/n]', ['Y', 'n'])
                         if message == 'n':
                             sendMessage({'type': 'error', 'data': 'request rejected, communication terminated.'}, connection)
                             print('request denied!')
                         elif message == 'Y':
                             sendMessage({'type': 'key', 'identity': user.hashed_ideneity, 'data': user.public_key.decode()}, connection)
-                        print("Request complete, please type 'stop' to switch back to main process.")
+                            print("Key sent!")
                 else:
                     response = {'type': 'error', 'data': 'unknown type sent.'}
                     sendMessage(response, connection)
+            except Exception as e:
+                print("An error has been handled in the TCP server.")
+                print("Error", e)
             finally:
                 # Clean up the connection
                 connection.close()
     except KeyboardInterrupt:
+        print("Closing TCP server...")
+        sock.close()
         pass
 
 
+# See if you are within the user's contacts
 def tcpListClient(request, responses, identityV):
-
-
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((request[2][0], 10000))
@@ -639,7 +802,10 @@ def tcpListClient(request, responses, identityV):
                 response.extend(packet[:-3])
                 break
             response.extend(packet)
+    except Exception as e:
+        print("Error occured:", e)
     finally:
+        # Check if the responder is within the user's contacts
         response = json.loads(response.decode())
         if (response['type'] == 'contact'):
             response['data'] = request
@@ -650,25 +816,32 @@ def tcpListClient(request, responses, identityV):
             print("Error understanding response")
         sock.close()
 
+
+# Handle createing requests for key transfer and file transfer
 def tcpFileClient(request, user_data):
     user = user_data.get()
     user_data.put(user)
+    # We are looping because one request might request a key, and then send the file
     while True:
         # Create a TCP/IP socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((request['address'][0], 10000))
         response = bytearray()
         try:
-            if not request['public_key']: # I dont think we want to send our key unprovoked...
-                # data = {'type': 'key', 'data': user.public_key.decode(), 'identity': user.hashed_ideneity}
+            # Request a key if you dont have it, otherwise send the file
+            if not request['public_key']:
                 data = {'type': 'key-request', 'identity': user.hashed_ideneity}
                 sendMessage(data, sock)
                 print("Waiting for users response...")
             else:
-                # This is where we encrypt and send the file over
-                data = {'type': 'test', 'data': 'This is a file. here it is, enjoy it...'}
-                sendMessage(data, sock)
+                # open and encrypt the file
+                file = request['file']
+                file, signature = encryptFile(file, request['public_key'], user.private_key)
+
+                # send the file, your key (used if they dont have it), and the sinature
+                data = {'type': 'file', 'identity': user.hashed_ideneity, 'key': user.public_key.decode(), 'data': file.decode(), 'signature': signature.decode()}
                 print("transfering file...")
+                sendMessage(data, sock)
 
             # Look for the response
             while True:
@@ -677,14 +850,21 @@ def tcpFileClient(request, user_data):
                     response.extend(packet[:-3])
                     break
                 response.extend(packet)
+
+        except Exception as e:
+            print(e)
         finally:
+            # Response handling
             response = json.loads(response.decode())
+            # When an error response is retrieved, we just print the info
             if (response['type'] == 'error'):
                 print("Error:", response['data'])
                 break
+            # When a success response is retrieved, we just print the info
             elif response['type'] == 'success':
                 print(response['data'])
                 break
+            # Verify that the key is correct
             elif response['type'] == 'key':
                 contact = ideneityToContact(response['identity'], user.contacts)
                 if not contact:
@@ -694,16 +874,17 @@ def tcpFileClient(request, user_data):
                     print(response['data'])
                     print("If this is correct, accept connection to save their key, otherwise refuese request")
                     message = input('Do you want to save the above key? [Y/n]')
-                    if message == 'n': # Maybe do something else?
-                        print('request denied!')
-                        break
-                    elif message == 'Y':
+                    if message == 'Y':
                         contact['public_key'] = response['data']
                         user = user_data.get()
                         user.set_contact_key(contact['name'], contact['email'], response['data'])
                         user_data.put(user)
                         request['public_key']  = response['data']
                         print('Public key saved successfully!')
+                    else:
+                        print('request denied!')
+                        break
+            # This is to test TCP and we left it here for fun. It just sends an unencrypted message back and forth
             elif response['type'] == 'test':
                 print('Recieved test back with data:', response['data'])
                 break
@@ -713,9 +894,11 @@ def tcpFileClient(request, user_data):
         sock.close()
 
 
+
+# Main Functionality
 def main():
     user = None
-    # Main functionality
+    # Check if user needs to login or register
     if account_check():
         user = login_user()
         print("Welcome back ", user.name)
@@ -723,30 +906,39 @@ def main():
         user = register_user()
         print("Welcome to Securedrop", user.name)
 
+    # Gets the IP address the program will run on
     address = get_ip_address()
-
-    online = Manager().list()
     procs = list()
+
+    # This is for shared data between the processes
+    # Online is populated by broadcast_listener, and read by other processes
+    online = Manager().list()
+    # The user will be in here, when needed it will be removed and other processes will block until its placed back in
     user_data = Queue()
+    # This is genereated to ignore our own broadcasts
     id = get_random_bytes(16)
     # listen for other broadcasts on network
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
     s.bind(('', 1338))
 
+    # This translates the user keys to bytearrays so its pickleable (only for cross process communication)
     user.export_keys()
     user_data.put(user)
 
+    # Creating our processes
     IOManager_worker = Process(target=IOManager, args=(online, user_data,))
     TPCServer_manager = Process(target=tcpServer, args=(address, user_data,))
     broadcast_listener_worker = Process(target=broadcast_listener, args=(s, id, online,))
     broadcast_sender_worker = Process(target=broadcast_sender, args=(1338, id,  user_data,))
+
+    # Populating process array
     procs.append(broadcast_listener_worker)
     procs.append(broadcast_sender_worker)
     procs.append(IOManager_worker)
     procs.append(TPCServer_manager)
 
+    # Starts all our processes
     try:
         sys.stdin.close()
         for p in procs:
@@ -754,6 +946,7 @@ def main():
         while True:
             time.sleep(1)
 
+    # Handles safely ending processes
     except KeyboardInterrupt:
         for p in procs:
             if p.is_alive():
