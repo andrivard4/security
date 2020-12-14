@@ -53,12 +53,16 @@ class User:
         entered_hash.update((self.email+self.name).encode("utf8"))
         self.hashed_ideneity = entered_hash.hexdigest()
 
+    # Get contacts of the user
     def getContacts(self):
         return self.contacts
 
+    # Add a contact to the user
     def addContact(self, name, email):
         self.contacts.append({'name': name, 'email': email, 'public_key': ''})
 
+
+    # Encrypt the contact info with the public key then write it to the contact file
     def saveUserData(self):
         if not os.path.exists(os.path.expanduser("~") + "/.securedrop"):
             os.mkdir(os.path.expanduser("~") + "/.securedrop")
@@ -81,6 +85,7 @@ class User:
         if self.private_key is not None:
             self.private_key = self.private_key.export_key()
 
+    # Define Public and Private export keys of the user
     def import_keys(self):
         if self.public_key is not None:
             self.public_key = RSA.import_key(self.public_key)
@@ -502,6 +507,22 @@ def addContact(user_data):
     user.export_keys()
     user_data.put(user)
 
+# Helper function for sending files
+# This gets the file location, and an online contact to send it to
+def sendFile(online, user_data):
+    email = input('Please enter the users email:')
+    online_contacts = listContacts(online, user_data)
+    found = False
+    for contact in online_contacts:
+        if contact['email'] == email:
+            found = contact
+            break
+    if not found:
+        print("User is not online!")
+        return
+    file = input('Please enter the path to your file:')
+    contact['file'] = file
+    tcpFileClient(contact, user_data)
 
 ############################################################
 # (online, user_data)
@@ -671,7 +692,7 @@ def IOManager(online, user_data):
             if (task == 'add'):
                 addContact(user_data)
             elif(task == 'exit'):
-                raise KeyboardInterrupt()
+                print("To exit at any time press Ctrl+C")
             elif(task == 'list'):
                 for contact in listContacts(online, user_data):
                     print(contact['name'], "\t", contact['email'], "\t", "Verified" if contact['public_key'] else "Not verified")
@@ -866,11 +887,13 @@ def requestInput(message, options=False):
     sys.stdin.close()
     sys.stdin = open('/dev/stdin')
     listen = False
-    response = ""
+    return_val = ""
     while True:
         if listen:
             response = input(message)
-            if (response == 'stop'):
+            if response == 'stop':
+                if return_val != '':
+                    break
                 listen = False
                 continue
             found = False
@@ -878,11 +901,12 @@ def requestInput(message, options=False):
                 for item in options:
                     if response == item:
                         found = True
-                        break;
             if found or not options:
+                message = ''
+                return_val = response
                 print("Request complete, please type 'stop' to switch back to main process.")
-                break;
-            print("Invalid input, try again.")
+            else:
+                print("Invalid input, try again.")
         else:
             counter = 0
             for line in sys.stdin:
@@ -895,7 +919,7 @@ def requestInput(message, options=False):
                     print("You still have a pending request on another process, type 'reply' to be able to respond to it.")
                     counter = 0
     sys.stdin.close()
-    return response
+    return return_val
 
 
 ############################################################
@@ -960,7 +984,7 @@ def tcpServer(server_address, user_data):
                             contact = data['identity']
                             contact['public_key'] = data['key']
                             user = user_data.get()
-                            user.set_contact_key(contact['name'], contact['email'], data['data'])
+                            user.set_contact_key(contact['name'], contact['email'], data['key'])
                             user_data.put(user)
                             print("Key has been saved!")
                     message = requestInput(contactString(data['identity']) + ' wants to send you a file, do you accept? [Y/n]', ['Y', 'n'])
@@ -971,6 +995,7 @@ def tcpServer(server_address, user_data):
                         file = decryptFile(data['data'].encode(), data['signature'].encode(), data['identity']['public_key'], user.private_key)
                         saveFile(file['name'], b64decode(file['data']))
                         sendMessage({'type': 'success', 'data': 'File transfer complete!'}, connection)
+                        print("File has been saved!")
                 elif data['type'] == 'test':
                     # This is a simple test request, it sends messages to eachother
                     print('Test request recieved with data:', data['data'])
