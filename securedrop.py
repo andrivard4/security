@@ -507,22 +507,6 @@ def addContact(user_data):
     user.export_keys()
     user_data.put(user)
 
-# Helper function for sending files
-# This gets the file location, and an online contact to send it to
-def sendFile(online, user_data):
-    email = input('Please enter the users email:')
-    online_contacts = listContacts(online, user_data)
-    found = False
-    for contact in online_contacts:
-        if contact['email'] == email:
-            found = contact
-            break
-    if not found:
-        print("User is not online!")
-        return
-    file = input('Please enter the path to your file:')
-    contact['file'] = file
-    tcpFileClient(contact, user_data)
 
 ############################################################
 # (online, user_data)
@@ -734,7 +718,7 @@ def contactString(data):
 #                online users
 # Params: online: List of all broadcasts
 #         user: a User class
-# Return:
+# Return: list of onlineContacts
 ############################################################
 def verify_online_contacts(online, user):
     onlineContacts = []
